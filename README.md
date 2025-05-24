@@ -1,0 +1,580 @@
+# Common Lean Pitfalls
+
+This document lists some common mistakes that Lean users frequently make, as well as unintuitive features of Lean that can lead to errors.
+
+If you find a mistake in this document or would like something added, please open
+an issue or pull request on this repository.
+
+## Table of contents
+- [Automatic implicit parameters](#automatic-implicit-parameters)
+- [Forgetting `lake exe cache get`](#forgetting-lake-exe-cache-get)
+- [Using `have` for data](#using-have-for-data)
+- [Not checking for distinctness](#not-checking-for-distinctness)
+- [Not accounting for 0](#not-accounting-for-0)
+- [Division by 0](#division-by-0)
+- [Integer division](#integer-division)
+- [Natural number subtraction](#natural-number-subtraction)
+- [Other partial functions](#other-partial-functions)
+- [Real power](#real-power)
+- [Distance in `Fin n → ℝ`](#distance-in-fin-n-%E2%86%92-%E2%84%9D)
+- [Parameters for instances that already exist](#parameters-for-instances-that-already-exist)
+- [Sort _](#sort-_)
+- [Trying to prove properties about Float](#trying-to-prove-properties-about-float)
+- [`native_decide`](#native_decide)
+- [Panic does not abort](#panic-does-not-abort)
+- [Lean 3 code](#lean-3-code)
+- [Non-terminal simp](#non-terminal-simp)
+- [Ignoring warnings](#ignoring-warnings)
+- [Ambiguous unicode characters](#ambiguous-unicode-characters)
+
+## Automatic implicit parameters
+
+By default, Lean's [automatic implicit parameters](https://lean-lang.org/doc/reference/latest///Definitions/Headers-and-Signatures/#automatic-implicit-parameters) feature (`autoImplicit` for short) causes
+unbound variables to be converted to implicit parameters. For example, when this feature is enabled,
+```lean
+theorem my_theorem : a + 1 = 1 + a := by omega
+```
+is short for
+```lean
+theorem my_theorem {a : Nat} : a + 1 = 1 + a := by omega
+```
+
+This feature can make your code more concise, but it also means that any typo in a theorem statement
+could make the theorem statement wrong. For example, the following
+statement
+```lean
+theorem my_theorem (n : Nat) (h : 1 ≤ n) : 0 < m := sorry
+```
+is false because `m` is an automatic implicit parameter.
+The automatic implicit feature makes it hard to see that `m` was typed
+when `n` should have been typed instead.
+
+Issues can also manifest in hard to predict ways. For example, if you haven't yet imported
+`Mathlib.Data.Nat.Notation`, then in
+```lean
+theorem my_theorem : ∃ (a b : ℕ), a ≠ b := sorry
+```
+`ℕ` is actually an automatic implicit variable and can be any type, so this statement is actually false:
+```lean
+example : False := Exists.elim (my_theorem (ℕ := False)) (fun f _ ↦ f)
+```
+
+Automatic implicit parameters are enabled globally by default, but they are disabled if you are
+working on Mathlib. If you are new to Lean, I recommend that you disable them and use the `variable`
+command instead. This can be done either by adding
+```lean
+set_option autoImplicit false
+```
+at the top of every Lean file, or by disabling it globally in your `lakefile.toml` or `lakefile.lean`.
+
+## Forgetting `lake exe cache get`
+
+If you are working on `Mathlib` or a project depending on `Mathlib`,
+`lake build` may take upwards of an hour to complete the first time it is run.
+When Lean files are compiled for the first time, Lean caches the results of the compilation in `.olean` files so that subsequent runs
+are faster.
+
+Running `lake exe cache get` downloads `.olean` files for `Mathlib` from
+a central server, which prevents you from having to compile them yourself
+and can save over an hour of compute time.
+(You might want to try `lake exe cache get!` if `lake exe cache get` does not work.)
+If you find that your project is taking an unusually long amount of time
+to compile or start in VSCode, it could be because you forgot to run this command.
+
+Note that the decompressed compiled version of Mathlib is over 5 GB large, so make
+sure you have enough storage space and are connected to a suitable network
+(and not a phone hotspot with monthly limits, for example) before running
+`lake exe cache get`.
+
+## Using `have` for data
+
+Sometimes it can be convenient to introduce a new variable to represent
+a more complicated expression in a proof.
+For example, suppose you have a complicated predicate `MyPredicate`
+and would like to set `x := 37 * n + 42 * m + 76` inside a proof.
+If you do this with `have` and then prove `h : MyPredicate x`, you will notice that
+there's no way to use `h` to close the goal.
+```lean
+example (n m : Nat) : MyPredicate (37 * n + 42 * m + 76) := by
+  have x : Nat := 37 * n + 42 * m + 76
+  have h : MyPredicate x := ...
+  /- Tactic state is now:
+  n m x : Nat
+  h : MyPredicate x
+  ⊢ MyPredicate (37 * n + 42 * m + 76)
+  Now what? -/
+```
+Additionally, you might be unable to prove `MyPredicate x` if your proof depends
+on what the value of `x` is.
+
+The problem here is that when you use `have` to create a new variable in a proof,
+Lean forgets what value you assigned to `have`.
+So, after executing `have x : Nat := 37 * n + 42 * m + 76`, the proposition
+`x = 37 * n + 42 * m + 76` is now unprovable.
+
+The solution is to use `let` instead of `have` whenever you are introducing a
+new variable that is not a proof.
+Notice how in the following tactic state, `x` has a value attached to it.
+```lean
+example (n m : Nat) : MyPredicate (37 * n + 42 * m + 76) := by
+  let x : Nat := 37 * n + 42 * m + 76
+  have h : MyPredicate x := ...
+  /- Tactic state is now:
+  n m : Nat
+  x : Nat := 37 * n + 42 * m + 76
+  h : MyPredicate x
+  ⊢ MyPredicate (37 * n + 42 * m + 76)
+  -/
+```
+This means that for the rest of the proof, `x` is definitionally equal to
+`37 * n + 42 * m + 76`.
+Thus, the type of `h` is definitionally equal to the goal, so we can finish
+the proof with `exact h` without having to do any sort of manual conversion.
+If you do want access to a proof of `x = 37 * n + 42 * m + 76`, you can get
+one with `have hx : x = 37 * n + 42 * m + 76 := rfl`, where `rfl` is a valid
+proof of this fact because of the definitional equality.
+
+You may also be interested in the `set` tactic, which is like `let` but
+also automatically replaces instances of the expression in the proof state.
+
+## Not checking for distinctness
+
+Consider the following statement of the pigeonhole principle, which
+states that if $`f : A \to B`$ is a function betwen finite sets and $`|A| > |B|`$,
+then there exists two distinct elements in $`A`$ which $`f`$ map to the same element of $`B`$:
+```
+import Mathlib.Data.Fintype.Card
+
+variable {A B : Type*} [Fintype A] [Fintype B]
+
+theorem pigeonhole_principle (f : A → B) (h : Fintype.card B < Fintype.card A) : ∃ (x y : A), f x = f y := by
+  let a : A := Classical.choice <| Fintype.card_pos_iff.mp (by omega)
+  exact ⟨a, a, rfl⟩
+```
+If you look at the proof, you will notice that it is way too simple.
+Notice that the statement of the theorem forgets to require that `x` and `y`
+be distinct, so all we have to do is to show that there exists some element `a : α`
+and then we have `f(a) = f(a)` by definition.
+This is not a Lean specific issue, but it is more likely to lead to problems down
+the line in Lean than in informal math.
+
+(One thing the theorem statement does do correctly is use `<` instead of `>`.
+In Lean, `<` and `≤` are preferred to `>` and `≥`, and most theorems will be
+phrased in terms of the former two rather than the latter two.)
+
+## Not accounting for 0
+
+Consider the following statement of Fermat's Last Theorem:
+```lean
+theorem flt (a b c n : Nat) (h : 3 ≤ n) : a ^ n + b ^ n ≠ c ^ n := sorry
+```
+Unfortunately, this statement is false:
+```lean
+example : False := flt 0 0 0 3 le_rfl rfl
+```
+
+Remember that in Lean, `0 : ℕ`, and that you should account for this case in your theorem statements.
+(This is also a case where using Mathlib definitions would have helped:
+Mathlib already has a definition `FermatLastTheorem` for the statement of Fermat's Last Theorem,
+which is much less likely to contain errors.)
+
+## Division by 0
+
+In Lean, `n / 0 = 0`. This is different from other programming languages, where division
+by zero usually results in an exception.
+
+This means that a statement like
+```lean
+import Mathlib.Data.Real.Basic
+
+theorem my_theorem : ∃! (x : ℝ), x / (1 + x) = 0 := sorry
+```
+is actually false, because the equation `x / (1 + x) = 0` has two solutions over the reals in Lean:
+```lean
+example : False := by
+  suffices h : (0 : ℝ) = -1 by aesop
+  apply my_theorem.unique <;> simp
+```
+
+Division behaves this way because Lean is a pure functional language, so all functions must be total—functions cannot throw exceptions.
+In Lean, the preferred way of working with a partial function $`f : A \rightharpoonup B`$
+is to instead define a function $`g : A \to B`$ such that $`g(x) = f(x)`$ whenever $`x \in \text{dom}(f)`$.
+The values of $`g`$ on $`A \setminus \text{dom}(f)`$ are arbitrary and are usually chosen to be whatever gives the nicest algebraic properties (these values are often known as "junk values").
+
+It is possible to instead define division like
+```lean
+def div (a b : ℝ) (h : b ≠ 0) : ℝ := ...
+```
+but in practice, providing a proof that the demoninator is nonzero every time we want to divide two numbers gets tedious very quickly.
+In contrast, *theorems* involving division usually have a hypothesis stating that the denominator is nonzero.
+It is recommended to add hypotheses making sure your denominator is nonzero to your own theorems, unless you have carefully thought through the case where the denominator is zero.
+For more information, please see [this Xena project blog post](https://xenaproject.wordpress.com/2020/07/05/division-by-zero-in-type-theory-a-faq/).
+
+## Integer division
+
+When dividing two `Int`s or `Nat`s in Lean, the result is always rounded down
+(this is slightly different behavior from most languages, which round towards zero).
+For example, the following statement is false:
+```lean
+import Mathlib.Algebra.Field.Rat
+import Mathlib.Algebra.Order.Ring.Rat
+
+def thm₁ (n : ℤ) (h : 2 < n) : (1 / n) < (1 / 2) := by
+  /-
+  ===================
+  Found a counter-example!
+  n := 3
+  guard: 2 < 3
+  issue: 0 < 0 does not hold
+  (0 shrinks)
+  -------------------
+  -/
+  plausible
+```
+
+But at the same time, you might not want to rely on this behavior. For instance, this theorem is actually true:
+```lean
+def thm₂ (n : ℚ) (h : 2 < n) : (1 / n) < (1 / 2) := by
+  simp [inv_strictAnti₀ rfl h]
+```
+In this example, the left hand side of the `<` is a rational number, so Lean interprets the right hand side as a rational number so integer division no longer applies.
+This is similar to what happens in the following:
+```lean
+#eval (1 / 2) + 0 -- 0
+#eval (1 / 2) + (0 : ℚ) -- (1 : Rat)/2
+```
+
+This may surprise you if you're used to languages like Java where `(1 / 2) + 0.0` evaluates to `0.0` because in Java type information outside parentheses usually does not affect what happens inside the parentheses.
+
+In general, it is hard to determine the presence or absence of integer division.
+It is also possible that Lean's behavior with respect in the most recent example might change in the future.
+
+If this concerns you, you may want to consider adding `set_option pp.numericTypes true` near the top
+of your file, so that numeric literals are annotated with their corresponding
+type (e.g. `ℕ`, `ℤ`, `ℚ`, `ℝ`, `ℂ`) when they are displayed in the infoview.
+
+## Natural number subtraction
+
+Subtraction of natural numbers truncates at `0`. That is, we have
+```lean
+#eval 5 - 3 -- 2
+#eval 5 - 7 -- 0
+#eval 10 - 100 + 100 -- 100
+#eval 5 - 13 + 11 + 0 -- 11
+```
+As explained above in the integer division section, type annotations can affect which operations are performed:
+```lean
+#eval 10 - 100 + (100 : Int) -- 10
+#eval 5 - 13 + 11 + (-0) -- 3
+```
+
+Trucating subtraction is also known as [monus](https://en.wikipedia.org/wiki/Monus).
+
+## Other partial functions
+
+You should also be aware that many other functions in Mathlib use junk values.
+For example,
+- `deriv f s x = 0` if `f` is not differentiable at `x` within `s`.
+Similarly, the Fréchet derivative `fderiv` returns the 0 linear map when
+`f` is not differentiable at the given point.
+You might need to add `HasDerivAt` or `HasFDerivAt` to your theorems' hypotheses.
+- The "topological sum" `tsum f`, also denoted `∑' i, f i`, computes the sum of a series, or returns 0 if the sum does not converge.
+Consider adding `Summable f` hypotheses to theorems that involve `∑' i, f i`.
+  - Note that because `tsum` does not assume an order structure on the domain, only unconditionally converging series are considered `Summable`.
+  Intuitively, a series is unconditionally convergent if it doesn't matter which order you take the sum.
+  For example, the alternating harmonic series is *not* `Summable` because it is only conditionally convergent.
+  (By the [Riemann series theorem](https://en.wikipedia.org/wiki/Riemann_series_theorem), a real valued series is *unconditionally convergent* if
+  and only if it is *absolutely convergent*.
+  In general, unconditional convergence is weaker than absolute convergence: If $`(e_n)_{n \in \mathbb{N}}`$ is an orthonormal basis of an countably-infinite dimensional Hilbert Space, then $`\sum (e_n)/n`$ converges unconditionally, but not absolutely.)
+- `tprod f` (denoted `∏' i, f i`) is similar to `tsum`, but the junk value is `1` instead of `0`.
+- `Nat.sqrt x` takes the floor of $`\sqrt{x}`$.
+- `Real.sqrt x` is `0` for negative inputs.
+- `Real.log x` actually means $`\log_e |x|`$ when $`x \ne 0`$ and is $`0`$ when $`x = 0`$.
+This gives nicer algebraic properties then setting it to be $`0`$ for negative all $`x`$.
+- `Real.sSup` and `Real.iSup` are 0 if the set is not bounded above, and likewise `Real.sInf`, and `Real.iInf` are
+0 if the set is not bounded below.
+This interacts nicely with `Real.sqrt`: it means that $`\sqrt{x} = \sup \{y \mid y^2 < x\}`$ for all $`x \in \mathbb{R}`$, since when $`x \le 0`$ both sides are $`0`$.
+
+## Real power
+
+`Real.rpow x y` is defined somewhat arbitrarily for negative `x`.
+In particular, it is defined as the real part of the complex exponentiation
+function, which is itself somewhat arbitrary as it depends on the complex logarithm.
+This gives the function nice analytic properties, but it also means that
+taking roots of negative numbers can be unintuitive.
+For example, the value of `(-125 : ℝ) ^ (1/3 : ℝ)` is $`5\cos(\pi/3)`$,
+and not $`-5`$ like you might have expected.
+
+## Distance in `Fin n → ℝ`
+
+In many cases, `Fin n → ℝ` is the recommended way to represent $`\mathbb{R}^n`$ in Lean.
+Vectors of this type can be written using the `![x,y,z,...]` notation.
+But note that in Lean, if $`(S_i)_{i \in I}`$ is a finite family of (pseudo)metric spaces, then $`\prod_{i \in I}S_i`$ uses the $`L^\infty`$ metric:
+```math
+\text{dist}(\textbf{x},\textbf{y}) = \sup\left\{ \text{dist}(x_i,y_i) \mid i \in I\right\}
+```
+and `Fin n → ℝ` is a special case of this.
+
+This means that the distance between $`(1,0)`$ and $`(0,1)`$ is actually $`1`$:
+```lean
+import Mathlib.Analysis.InnerProductSpace.PiL2
+
+example : dist ![(1 : ℝ),0] ![0,1] = 1 := by
+  rw [dist_pi_eq_iff (by positivity)]
+  constructor
+  · use 0
+    simp
+  · intro b
+    fin_cases b <;> simp
+```
+
+To instead use the standard Euclidean metric (also called the $`L^2`$ metric), you must
+use instead use `EuclideanSpace ℝ (Fin n)`, which is an abbreviation for `WithLp 2 (Fin n → ℝ)`. Vectors of this type can be written using the `!₂[x,y,z,...]` notation.
+```lean
+example : dist !₂[(1 : ℝ),0] !₂[0,1] = √2 := by
+  norm_num [EuclideanSpace.dist_eq]
+```
+
+## Parameters for instances that already exist
+
+A common mistake is introducing `variable`s or parameters for instances that already exist.
+For instance, in the following theorem statement, note that the `[Ring ℤ]` is unnecessary because `ℤ` already has a `Ring` instance available.
+```lean
+import Mathlib.Algebra.Equiv.TransferInstance
+import Mathlib.Algebra.Field.ZMod
+import Mathlib.Algebra.Polynomial.Cardinal
+
+theorem my_theorem [Ring ℤ] : CharZero ℤ := sorry
+```
+
+In fact as stated, this statement says that *every* ring on $`\mathbb{Z}`$ has characteristic 0, which is false because there exist countably infinite rings (e.g. $`(\mathbb{Z}/2\mathbb{Z})[X]`$) with nonzero characteristic.
+The following proof is by Bhavik Mehta:
+```lean
+open Cardinal in
+theorem bad : False := by
+  have e1 : #(Polynomial (ZMod 2)) = ℵ₀ := by simpa using (Cardinal.nat_lt_aleph0 2).le
+  have e2 : #ℤ = ℵ₀ := by simp
+  obtain ⟨e⟩ := Cardinal.eq.1 (e2.trans e1.symm)
+  let i : Ring ℤ := e.ring
+  cases @Nat.cast_injective _ _ my_theorem 2 0 rfl
+```
+
+Thank you to Edward van de Meent for suggesting that I include this topic and finding a misleading statement, and to Bhavik Mehta to working out the details of the proof.
+
+## Sort _
+
+Writing `Sort _` and `Type _` causes Lean to fill in the universe level parameter automatically.
+Sometimes, this results in Lean specializing the universe level more than you might
+have anticipated.
+For example, in
+```lean
+import Mathlib.Data.Countable.Defs
+
+example (α : Sort _) (x y : α) (_ : Countable α := inferInstance) : x = y := by
+  rfl
+```
+the `inferInstance` default argument finds `Prop.countable`, which causes `Sort _` to be restricted to `Prop`.
+So, `α : Prop`, which means that `x : α` and `y : α` are definitionally equal due to proof irrelevance.
+
+In older Lean versions, this behavior was even more likely to trigger, because code
+after the `:=` could affect what `Sort _` was.
+For example, the following code compiles in Lean 4.8.0:
+```lean
+example {α : Sort _} (x y : α) : x = y := by
+  have := α ∧ α -- Force α to have type Prop
+  rfl
+```
+
+Because of this behavior, it is recommended to either use `Sort*` or `Type*` (which
+are stricter versions of `Sort _` and `Type _` that force Lean to generate a new universe parameter each time they are used) or to specify the universe parameter explicitly.
+
+## Trying to prove properties about Float
+
+By default, entering a number like `5.42` creates a term of type `Float` rather than `Rat` or `Real`.
+It is very difficult to prove properties about `Float`.
+This is because within the mathematical portion of Lean, `Float` is defined as an opaque type and `Float = Unit` is consistent with Lean's core type theory (as long as `native_decide` is not used).
+But computationally, `Float` follows the IEEE 754 *binary64* format, which is like `double` in C or `f64` in Rust.
+(See `Float32` for 32-bit floating point numbers.)
+This means that to prove anything meaningful about `Float`, you have to
+use `native_decide`, which is a risky tactic (see the section in this document on `native_decide`).
+
+Additionally, because of the behavior of floating point numbers,
+`0.1 + 0.2 == 0.3` evaluates to `false`.
+(See https://0.30000000000000004.com/ for an explanation.)
+
+So, if you are not interested in using Lean as a programming language or otherwise
+want to prove complicated properties about the numbers you work with, you should
+avoid `Float` and use another numeric type such as `Rat` or `Real`.
+
+## `native_decide`
+
+`native_decide`, also written as `decide +native`, is similar to the `decide`
+tactic except it uses `#eval` to run the decision procedure instead of reducing
+it in the kernel.
+This has the potential to be much faster than `decide`, and it is the only way to
+prove properties about `Float` and some other opaque types, but it is risky
+because it trusts the Lean compiler, which is more more complicated and likely
+to contain a bug than the Lean kernel.
+
+In particular, using `native_decide` makes your theorem depend on the
+`Lean.ofReduceBool` axiom, which states that the Lean compiler is trustworthy.
+You can check whether a proof relies on this axiom by using `#print axioms`.
+In addition to trusting the compiler, `Lean.ofReduceBool` also trusts all
+`@[extern]` and `@[implemented_by]` annotations as well as other extensions to
+the compiler.
+Since there are hundreds of these annotations in Lean core, at the present moment
+`native_decide` is almost certainly capable of proving `False`.
+It will also trust your `@[extern]` and `@[implemented_by]` annotations without
+keeping track of them:
+```lean
+def m := 37
+
+@[implemented_by m]
+def n := 22
+
+#reduce n -- 22
+#eval n -- 37
+
+theorem bad : False := by
+  have : n = 22 := by decide
+  have : n = 37 := by native_decide
+  contradiction
+
+#print axioms bad -- 'bad' depends on axioms: [Lean.ofReduceBool]
+```
+
+Code contributed to Mathlib is not allowed to use `native_decide`.
+
+## Panic does not abort
+
+If you are using Lean as a programming language, note that the `panic!`
+macro does not trigger a crash by default; instead, it just just prints
+an error message and lets the code keep running.
+This applies to functions like `Option.get!` as well.
+`panic` behaves this way because it is is a safe function, and it is
+formally equivalent to `default`.
+
+This can be dangerous if you are using panic to guard potentially
+dangerous `IO` operations or prevent data corruption.
+You may want to consider setting the environment variable
+`LEAN_ABORT_ON_PANIC` to `1`, although this might not be sufficient
+for user facing applications where environment variables are hard to
+control.
+
+## Lean 3 code
+
+Lots of Lean 3 code can be found on the internet, and
+LLMs frequently generate Lean 3 code instead of Lean 4 code.
+If you are reading old Lean code or using an LLM, and you see details such as
+- Names of types, like `nat` and `rat` starting with a lowercase letter
+- Lowercase imports like `import data.real.basic` that don't start with a library
+name (the Lean 4 equivalent is `import Mathlib.Data.Real.Basic`).
+- Usage of `begin` and `end` to surround tactic mode instead of `by`
+- Plural commands like `variables` and `universes` when introducing 2 or more variables or universes
+- The `rw` tactic without square brackets
+- The `refl` tactic (which is spelled `rfl` in Lean 4)
+
+then the code you are reading is probably Lean 3 code
+(or, if you are using an LLM, it could be an incoherent mix of Lean 3 and Lean 4).
+Lean 3 and Lean 4 are very different languages, so Lean 3 code will not work in Lean 4.
+
+## Non-terminal simp
+
+This is not something you need to be concerned about when writing proofs for the
+first time, but if you are trying to tidy up a proof, perhaps so that it can be
+added to a library like mathlib, then note that using `simp` in the middle of
+a tactic block is considered bad practice.
+In the following
+```lean
+example : ... := by
+  ...
+  simp
+  rw [...]
+  exact h
+```
+the usage of `simp` is considered *non-terminal*.
+
+Non-terminal `simp`s create maintainability issues.
+In general, `simp` will become more powerful over time as more lemmas are added
+to mathlib, and that means that the goal state after `simp` can change when
+code in other parts of the library changes, potentially breaking any tactics
+that come after `simp`, such as the `rw` in this example.
+In the less common cases where lemmas are removed from mathlib, both terminal
+`simp`s and non-terminal `simp`s can break, but it is usually much easier to
+fix a terminal `simp` call.
+
+To avoid non-terminal `simp`s, you can use a simp variant like `simpa` or `simp_rw`
+to combine `simp` with the tactics that come after it, or you can "squeeze" your
+simp calls by using `simp?`.
+Note that it is fine for `simp` to appear in the middle of a proof as long as
+it fully closes a goal. For example, then even though the `simp` in
+```lean
+  induction n with
+  | zero =>
+    simp
+  | succ d hd =>
+    ...
+```
+is in the middle of the proof, it is not considered a non-terminal simp
+because it fully closes a goal.
+
+For more information, see
+https://leanprover-community.github.io/extras/simp.html#non-terminal-simps
+
+## Ignoring warnings
+
+Pay close attention to warnings in your Lean files. An unused variables
+warning in a completed theorem could mean that not all hypotheses were
+used, which usually indicates that the theorem statement was wrong.
+Similarly, a warning that a declaration uses sorry when you did not
+type `sorry` yourself could indicate that a tactic failed and closed
+the proof with a synthetic sorry silently.
+
+If you are certain that a warning does not apply, you can disable it
+with an appropriate usage of `set_option`.
+This is better programming practice than ignoring the warnings
+and leaving others (or your future self!) to guess which warnings
+are expected and which you should be concerned about.
+
+## Ambiguous unicode characters
+
+Lean makes extensive use of non-ASCII unicode characters, but a side effect of this
+is that many characters look similar but have very different functionality in Lean.
+If you are using VSCode with the Lean 4 extension, you can hover over
+unfamiliar characters to see instructions on how to type them.
+
+Some characters that are often confused include:
+
+Character | Unicode Name | How to type | Usage in Lean
+--- | --- | --- | ---
+`\|` | Vertical Line (U+007C) | ASCII character | Set builder notation; Pattern matching, Absolute value
+`∣` | Divides (U+2223) | `\\|`, `\dvd`, `\mid`, `\shortmid` | Divisibility
+`Π` | Greek Capital Letter Pi (U+03A0) | `\p`, `\P`, `\Pi` | Dependent function type: `Π x : α, β x` is another way to write `(x : α) → β x`
+`∏` | N-Ary Product (U+220F) | `\prod` | Indexed products: see `BigOperators.bigprod`
+`⊓` | Square Cap (U+2293) | `\inf`, `\meet`, `\glb`, `\sqcap` | Infimum of two elements: `a ⊓ b` means `min a b`. See the `Min` typeclass, which is used even when the order is not linear
+`⨅` | N-Ary Square Intersection Operator (U+2A05) | `\infi`, `\Glb`, `\Inf`, `\Meet`, `\Sqcap`, `\bigglb`, `\biginf`, `\bigmeet`, `\bigsqcap` | Indexed infimum operation, requires the `InfSet` typeclass.
+`Σ` | Greek Capital Letter Sigma (U+03A3) | `\S` `\GS`, `\Sigma` | The `Sigma` (aka dependent pair/dependent sum) type
+`∑` | N-Ary Summation (U+2211) | `\sum` | Indexed summations: see `BigOperators.bigsum`
+`×` | Multiplication Sign (U+00D7) | `\x`, `\times`, `\multiplication` | Cartesian product of types
+`x` | Latin Small Letter X (U+0078) | ASCII character | No special function
+`X` | Latin Capital Letter X (U+0058) | ASCII character | Normally no special function; when the `Polynomial` namespace is open, represents the polynomial variable/indeterminant
+`*` | Asterisk (U+002A) | ASCII character | Multiplication
+`∨` | Logical Or (U+2228) | `\v`, `\or`, `\vee` | The Or symbol: `a ∨ b` means `Or a b`
+`\/` | | ASCII characters | ASCII alternative for the Or symbol `∨`
+`v` | Latin Small Letter V (U+0076) | ASCII character | No special function
+`·` | Middle Dot (U+00B7) | `\.`, `\centerdot` | Indenting and focusing on subgoals in tactic mode; Anonymous function syntax like `(· + 2)`, which is short for `fun x ↦ x + 2`
+`•` | Bullet (U+2022) | `\smul`, `\bub`, `\bu` | scalar multiplication or left action (see the `HSMul` and `SMul` typeclasses)
+`⬝` | Black Very Small Square (U+2B1D) | `\cdot`, `\dot`, `\tr`, `\con` | used only in `u ⬝ᵥ w = dotProduct u w` (enter `ᵥ` with `\_v`)
+`→` | Rightwards Arrow (U+2192) | `\r`, `\imp`, `\->`, `\to`, `\r-`, `\rightarrow` | Function type `A → B`
+`->` | | ASCII characters | ASCII alternative to `→` for function types
+`↦` | Rightwards Arrow From Bar (U+21A6) | `\mapsto`, `\\|->`, `\r-\|` | Used in Lambda binders like `fun x : Nat ↦ x + 2`
+`=>` | | ASCII characters | Pattern matching; ASCII alternative to `↦`
+`⟶` | Long Rightwards Arrow (U+27F6) | `\hom`, `\-->`, `\longrightarrow`, `\r--` | `a ⟶ b` is the type of morphisms from `a` to `b` in a category or quiver: see `Quiver.Hom`.
+`↪` | Rightwards Arrow With Hook (U+21AA) | `\hookrightarrow` | `α ↪ β` is the type of injective functions from `α` to `β`: see `Function.Embedding`
+`=` | Equals Sign (U+003D) | ASCII character | Equality between objects: see `Eq`
+`==` | | ASCII characters | Boolean equality: see `BEq`. Boolean equality is type-dependent, but if a `LawfulBEq` instance exists, `BEq` agrees with `Eq`.
+`≃` | Asymptotically Equal To (U+2243) | `\equiv`, `\~-`, `\simeq` | Bijections: `α ≃ β = Equiv α β` is the type of functions from `α → β` equipped with a two-sided inverse; `≃o`, `≃r`, etc. instead refer to specific types of isomorphisms.
+`≅` | Approximately Equal To (U+2245) | `\iso`, `\~=`, `\cong` | Isomorphisms in a category; when `open scoped Congruent` is active, refers instead to `Congruent`.
+`≈` | Almost Equal To (U+2248) | `\~~`, `\approx`, `\thickapprox` | Type-dependent equivalence notation: see `HasEquiv`. Usually refers to a typeclass inferred `Setoid` instance
+`~` | Tilde (U+007E) | ASCII character | Permutation equivalence relation for `List`s, `Array`s, and `Vector`s; some special meaning for other types
+`≡` | Identical To (U+2261) | `\==` | `a ≡ b [MOD n]` means `Nat.ModEq n a b` and `a ≡ b [ZMOD n]` means `Int.ModEq n a b`. Some special meaning for other types
