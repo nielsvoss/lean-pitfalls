@@ -7,7 +7,7 @@ an issue or pull request on this repository.
 
 ## Table of contents
 - [Automatic implicit parameters](#automatic-implicit-parameters)
-- [Forgetting `lake exe cache get`](#forgetting-lake-exe-cache-get)
+- [Forgetting the Mathlib cache](#forgetting-the-mathlib-cache)
 - [Using `have` for data](#using-have-for-data)
 - [Not checking for distinctness](#not-checking-for-distinctness)
 - [Not accounting for 0](#not-accounting-for-0)
@@ -48,6 +48,10 @@ theorem my_theorem (n : Nat) (h : 1 ≤ n) : 0 < m := sorry
 is false because `m` is an automatic implicit parameter.
 The automatic implicit feature makes it hard to see that `m` was typed
 when `n` should have been typed instead.
+In newer Lean versions, you should be able to see an inline `{m}` appear in your text editor next to
+`my_theorem`, which indicates that `m` is acting as an automatic implicit parameter;
+it is worth watching for these annotations because they can help you find unintentional uses of
+`autoImplicit`.
 
 Issues can also manifest in hard to predict ways. For example, if you haven't yet imported
 `Mathlib.Data.Nat.Notation`, then in
@@ -67,14 +71,14 @@ set_option autoImplicit false
 ```
 at the top of every Lean file, or by disabling it globally in your `lakefile.toml` or `lakefile.lean`.
 
-## Forgetting `lake exe cache get`
+## Forgetting the Mathlib cache
 
 If you are working on `Mathlib` or a project depending on `Mathlib`,
-`lake build` may take upwards of an hour to complete the first time it is run.
+opening a file that depends on `Mathlib` or running `lake build` in the terminal may take upwards of an hour to complete the first time it is run.
 When Lean files are compiled for the first time, Lean caches the results of the compilation in `.olean` files so that subsequent runs
 are faster.
 
-Running `lake exe cache get` downloads `.olean` files for `Mathlib` from
+Running `lake exe cache get` in the terminal or [invoking "Project: Fetch Mathlib Build Cache" in VSCode](https://github.com/leanprover/vscode-lean4/blob/master/vscode-lean4/manual/manual.md#project-actions) downloads `.olean` files for `Mathlib` from
 a central server, which prevents you from having to compile them yourself
 and can save over an hour of compute time.
 (You might want to try `lake exe cache get!` if `lake exe cache get` does not work.)
@@ -83,8 +87,8 @@ to compile or start in VSCode, it could be because you forgot to run this comman
 
 Note that the decompressed compiled version of Mathlib is over 5 GB large, so make
 sure you have enough storage space and are connected to a suitable network
-(and not a phone hotspot with monthly limits, for example) before running
-`lake exe cache get`.
+(and not a phone hotspot with monthly limits, for example) before
+downloading the cache.
 
 ## Using `have` for data
 
@@ -214,6 +218,7 @@ For more information, please see [this Xena project blog post](https://xenaproje
 
 When dividing two `Int`s or `Nat`s in Lean, the result is always rounded down
 (this is slightly different behavior from most languages, which round towards zero).
+This is so that using division does not cause the type of the number being worked with to change.
 For example, the following statement is false:
 ```lean
 import Mathlib.Algebra.Field.Rat
@@ -255,7 +260,7 @@ type (e.g. `ℕ`, `ℤ`, `ℚ`, `ℝ`, `ℂ`) when they are displayed in the inf
 
 ## Natural number subtraction
 
-Subtraction of natural numbers truncates at `0`. That is, we have
+Subtraction of natural numbers truncates at `0` because we want the return type of natural subtraction to be `Nat`. That is, we have
 ```lean
 #eval 5 - 3 -- 2
 #eval 5 - 7 -- 0
