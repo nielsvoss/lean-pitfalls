@@ -364,6 +364,25 @@ theorem bad : False := by
   cases @Nat.cast_injective _ _ my_theorem 2 0 rfl
 ```
 
+One symptom of this is that you might encounter expressions which look identical in the infoview but are not actually equal, resulting in tactics like `rfl`, `apply`,
+and `rw` failing with cryptic messages. For example,
+the tactic state below shows that the goal is to prove `dist 0 1 = dist 0 1` and you have to click
+three levels deep into the `dist` function on the right to find out that it is using the wrong instance.
+```lean
+import Mathlib.Topology.MetricSpace.Basic
+
+example [inst : MetricSpace ℝ] : dist (0 : ℝ) 1 = inst.dist (0 : ℝ) 1 := by
+  /-
+  Tactic state:
+  1 goal
+  inst : MetricSpace ℝ
+  ⊢ dist 0 1 = dist 0 1
+  -/
+  sorry
+```
+In actual code, you probably would not write `inst.dist` by accident, but in more complicated
+examples the bad instances can manifest in hard to detect ways.
+
 Thank you to Edward van de Meent for suggesting that I include this topic and finding a misleading statement, and to Bhavik Mehta to working out the details of the proof.
 
 ## Sort _
