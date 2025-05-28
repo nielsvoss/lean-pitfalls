@@ -18,6 +18,7 @@ an issue or pull request on this repository.
 - [Real power](#real-power)
 - [Distance in `Fin n → ℝ`](#distance-in-fin-n-%E2%86%92-%E2%84%9D)
 - [Parameters for instances that already exist](#parameters-for-instances-that-already-exist)
+- [Using `Set`s as types](#using-sets-as-types)
 - [Sort _](#sort-_)
 - [Trying to prove properties about Float](#trying-to-prove-properties-about-float)
 - [`native_decide`](#native_decide)
@@ -396,6 +397,69 @@ examples the bad instances can manifest in hard to detect ways.
 
 Thank you to Edward van de Meent for suggesting that I include this topic and finding a misleading statement, and to Bhavik Mehta to working out the details of the proof that
 the first example was `False`.
+
+## Using `Set`s as types
+
+In Lean, `Set X` is defined as `X → Prop`, so sets are predicates, not types. However, there is an implicit coercion from `Set X` to `Type u`, so if you have parameters
+`(X : Type) (s : Set X) (a : s)`,
+the `(a : s)` really means `(a : {x : X // x ∈ s})`.
+Here, `{x : X // x ∈ s}` is notation for `Subtype (fun x ↦ x ∈ s)`.
+
+That is, `a` is really a pair `⟨x, hx⟩` where `x : X` and `hx` is a proof that `x ∈ s`.
+So, `a` is not actually an element of `X`, but you might not realize this because there is another implicit coercion from `{x : X // x ∈ s}` to `X` which makes `a` behave like an element of `X` in some, but not all, circumstances.
+
+This can lead to various issues. For example,
+```lean
+import Mathlib.Data.Set.Basic
+
+example (s : Set ℕ) (n : s) : 0 + n = n := by
+  sorry
+```
+fails to compile because Lean does not know what `0 + n` means, since technically `n` is not a natural number.
+You have to write `(n : ℕ)` to make the addition succeed.
+
+Additionally, if you try proving this by induction on `n`, you may find that your tactics do not do what you expect.
+```lean
+import Mathlib.Data.Set.Basic
+import Mathlib.Tactic
+
+example (s : Set ℕ) (n : s) : 0 + (n : ℕ) = n := by
+  /- Tactic state before:
+  s : Set ℕ
+  n : ↑s
+  ⊢ 0 + ↑n = ↑n
+  -/
+  induction' n with d hd
+  /- Tactic state after:
+  s : Set ℕ
+  d : ℕ
+  hd : d ∈ s
+  ⊢ 0 + ↑⟨d, hd⟩ = ↑⟨d, hd⟩
+  -/
+```
+Here, the tactic did not perform induction on `n` as a natural number; instead, it deconstructed
+the two components of the `Subtype`.
+If you had instead tried to use the unprimed `induction` tactic, you
+would have gotten an "invalid alternative name 'zero', expected 'mk'" error message.
+
+Note the presence of the `↑` in the tactic states. This represents a coercion, and it is one clue that the type of `n` might not be what you think it is.
+
+Becuase of these problems and others, if you have `(s : Set X)` as a parameter and you want to assume that `a` is an element of `s`, it is often better to add two parameters `(a : X) (ha : a ∈ S)` than to write `(a : s)`.
+Similarly, if you want `t` to be a subset of `s`, you should declare `(t : Set X) (h : t ⊆ s)` rather than `(t : Set s)`.
+Using this coercion from `Set`s to types should usually be reserved for cases where you need to pass in a `Set` to another function that requires a type as input.
+
+Mathlib's algebra library has been designed with this in mind. For example,
+`Subgroup` is defined like
+```lean
+structure Subgroup (M : Type*) [Group M] where
+  carrier : Set M
+  mul_mem {a b} : a ∈ carrier → b ∈ carrier → a * b ∈ carrier
+  one_mem : (1 : M) ∈ carrier
+  inv_mem {x} : x ∈ carrier → x⁻¹ ∈ carrier
+```
+This is so that if you have a `H : Subgroup G`, then you can work with elements of `H` by
+declaring `x : G` and `hx : x ∈ H` instead of having to write `x : H` and deal with `x` not
+actually having type `G`.
 
 ## Sort _
 
