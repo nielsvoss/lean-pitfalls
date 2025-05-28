@@ -15,6 +15,7 @@ an issue or pull request on this repository.
 - [Integer division](#integer-division)
 - [Natural number subtraction](#natural-number-subtraction)
 - [Other partial functions](#other-partial-functions)
+- [Wrapping arithmetic in `Fin`](#wrapping-arithmetic-in-fin)
 - [Real power](#real-power)
 - [Distance in `Fin n → ℝ`](#distance-in-fin-n-%E2%86%92-%E2%84%9D)
 - [Parameters for instances that already exist](#parameters-for-instances-that-already-exist)
@@ -300,6 +301,28 @@ This gives nicer algebraic properties then setting it to be $`0`$ for negative a
 - `Real.sSup` and `Real.iSup` are 0 if the set is not bounded above, and likewise `Real.sInf`, and `Real.iInf` are
 0 if the set is not bounded below.
 This interacts nicely with `Real.sqrt`: it means that $`\sqrt{x} = \sup \{y \mid y^2 < x\}`$ for all $`x \in \mathbb{R}`$, since when $`x \le 0`$ both sides are $`0`$.
+
+## Wrapping arithmetic in `Fin`
+
+Arithmetic in `Fin` wraps around if it overflows or underflows:
+```lean
+#eval (7 : Fin 10) + 6 -- 3
+#eval (7 : Fin 10) * 6 -- 2
+#eval (2 : Fin 10) - 8 -- 4
+```
+This applies to literals as well:
+```lean
+#eval (15 : Fin 10) -- 5
+#eval (10 : Fin 10) -- 0
+```
+Note that even though `Fin n` uses the same notion of addition, subtraction, and multiplication as `ZMod n` for positive `n`, they are not exactly the same because
+`Fin n` is ordered while `ZMod n` is unordered
+and `Fin n` uses truncating integer division while `ZMod n` uses the "mathematically correct" notion of division on $`\mathbb{Z}/n\mathbb{Z}`$ whenever $`n`$ is prime.
+Also `Fin 0` is empty while `ZMod 0 = Int` (this is so that `ZMod n` is always a ring of characteristic `n`, because empty types cannot be rings).
+
+One reason that `Fin` uses wrapping arithmetic instead of something like saturating arithmetic is that
+it is used to represent native fixed-width integer types like `UInt32`, and the operations
+on `Fin` need to agree with the overflow and underflow of machine-native arithmetic.
 
 ## Real power
 
