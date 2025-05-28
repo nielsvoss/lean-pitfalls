@@ -380,10 +380,22 @@ example [inst : MetricSpace ℝ] : dist (0 : ℝ) 1 = inst.dist (0 : ℝ) 1 := b
   -/
   sorry
 ```
+In this particular case, trying `rfl` will give you the error message
+```
+tactic 'rfl' failed, the left-hand side
+  @dist ℝ (@PseudoMetricSpace.toDist ℝ Real.pseudoMetricSpace) 0 1
+is not definitionally equal to the right-hand side
+  @dist ℝ (@PseudoMetricSpace.toDist ℝ MetricSpace.toPseudoMetricSpace) 0 1
+inst : MetricSpace ℝ
+⊢ dist 0 1 = dist 0 1
+```
+from which you can conclude that the type classes do not match. When tactics such as `congr` or `convert` generate subgoals, it is often worth running `rfl` on those goals to see if they were caused by mismatching typeclass instances.
+
 In actual code, you probably would not write `inst.dist` by accident, but in more complicated
 examples the bad instances can manifest in hard to detect ways.
 
-Thank you to Edward van de Meent for suggesting that I include this topic and finding a misleading statement, and to Bhavik Mehta to working out the details of the proof.
+Thank you to Edward van de Meent for suggesting that I include this topic and finding a misleading statement, and to Bhavik Mehta to working out the details of the proof that
+the first example was `False`.
 
 ## Sort _
 
