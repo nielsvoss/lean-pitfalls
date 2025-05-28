@@ -659,6 +659,11 @@ This is better programming practice than ignoring the warnings
 and leaving others (or your future self!) to guess which warnings
 are expected and which you should be concerned about.
 
+Note that the `#lint` command (defined in `Batteries`) can detect some common issues,
+such as syntactic tautologies.
+It will only check parts of the file above the `#lint` command, so it should
+be run at the end of the file.
+
 ## Ambiguous unicode characters
 
 Lean makes extensive use of non-ASCII unicode characters, but a side effect of this
