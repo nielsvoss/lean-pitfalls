@@ -9,6 +9,7 @@ an issue or pull request on this repository.
 - [Automatic implicit parameters](#automatic-implicit-parameters)
 - [Forgetting the Mathlib cache](#forgetting-the-mathlib-cache)
 - [Using `have` for data](#using-have-for-data)
+- [Confusing `Prop` and `Bool`](#confusing-prop-and-bool)
 - [Not checking for distinctness](#not-checking-for-distinctness)
 - [Not accounting for 0](#not-accounting-for-0)
 - [Division by 0](#division-by-0)
@@ -142,6 +143,37 @@ proof of this fact because of the definitional equality.
 
 You may also be interested in the `set` tactic, which is like `let` but
 also automatically replaces instances of the expression in the proof state.
+
+## Confusing `Prop` and `Bool`
+
+The types `Prop` and `Bool` both capture the notion of something being true or false,
+but they behave very differently in Lean.
+`Prop` is the type of *propositions*, which are mathematical statements that have a truth value,
+while `Bool` is the type of *booleans*; it consists of exactly two elements, `true` and `false`.
+Note that `True` and `False` are *propositions*, while `true` and `false` are *booleans*.
+
+Using booleans where propositions are expected or vice versa can lead to some counterintuitive errors. Additionally, because booleans can be implicitly coerced into propositions, the issues that arise might not be immediately apparent.
+For example, `a = b` is a proposition, while `a == b` is a boolean (see the `BEq` typeclass), and mixing them up can lead to issues.
+It is worth making sure you have a good grasp on the difference between `Prop` and `Bool`.
+
+In Lean, `Prop` and `Bool` are both types, but `Prop` is also a universe while `Bool` is just a regular type containing two elements.
+This means that if `p : Prop` and `q : Bool`, then `h : p` might be valid but `h : q` is never valid.
+On the other hand, you can use terms of type `Bool` in `match` statements, but you cannot `match` on terms of type `Prop`. `Bool` is used sparingly in mathematics, but it is used much more often when `Lean` is used as a programming language.
+
+Intuitively, a proposition is a mathematical statement that might be either be proven or disproven.
+If `p` is a proposition, it might make sense to say `h : p`, which means that `h` is a proof of `p`.
+On the other hand, if `q` is a boolean, then `q` is literally equal to either `true` or `false`; it doesn't make sense to "prove" `q`, because `q` is a value, not a statement.
+
+If you have a boolean `q`, you can convert it to a proposition by writing `q = true`.
+Conversely, if `p` is a proposition and if Lean can synthesize an instance of `Decidable p`, then
+you can convert `p` to a boolean by writing `decide p`.
+(Here, the term `decide` should not be confused with the tactic `decide`.)
+Since the axiom `Classical.choice` can be used to produce a `Decidable p` instance for any proposition `p`, any proposition can be converted to a boolean, and thus `Prop` and `Bool`
+are *classically equivalent*.
+
+Despite this, it still makes sense to maintain a distinction between `Prop` and `Bool`.
+In mathlib, `Prop` and `Bool` may be assigned different instances for typeclasses;
+for example, `Prop` is given the Sierpiński space (with `{True}` open) as its topology while `Bool` is given the discrete topology.
 
 ## Not checking for distinctness
 
