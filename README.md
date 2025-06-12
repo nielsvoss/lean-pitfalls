@@ -396,6 +396,10 @@ example : dist !₂[(1 : ℝ),0] !₂[0,1] = √2 := by
   norm_num [EuclideanSpace.dist_eq]
 ```
 
+One consequence of this is that `Fin n → ℝ` is not registered as an inner product space,
+because the norm corresponding to the inner product would disagree with the existing $`L^\infty`$ norm.
+If you need $`\mathbb{R}^n`$ as an inner product space, use `EuclideanSpace ℝ (Fin n)`.
+
 ## Parameters for instances that already exist
 
 A common mistake is introducing `variable`s or parameters for instances that already exist.
