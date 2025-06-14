@@ -20,6 +20,7 @@ an issue or pull request on this repository.
 - [Real power](#real-power)
 - [Distance in `Fin n → ℝ`](#distance-in-fin-n-%E2%86%92-%E2%84%9D)
 - [Accidental double `iInf` or `iSup`](#accidental-double-iinf-or-isup)
+- [Trying to extract data from propositions](#trying-to-extract-data-from-propositions)
 - [Parameters for instances that already exist](#parameters-for-instances-that-already-exist)
 - [Using `Set`s as types](#using-sets-as-types)
 - [Sort _](#sort-_)
@@ -447,6 +448,68 @@ Additionally, everything in this section applies as much to `iSup` as it does to
 `∀ x ∈ s, p x` is shorthand for `∀ x, ∀ h : x ∈ s, p x` and `∃ x ∈ s, p x` is shorthand for `∃ x, ∃ h : x ∈ s, p x`.
 However, there have been discussions about possibly changing this behavior in the future: see
 [this discussion on Zulip](https://leanprover.zulipchat.com/#narrow/channel/287929-mathlib4/topic/sup.20and.20inf.20over.20sets/with/472565284).
+
+## Trying to extract data from propositions
+
+Given a proof `h : ∃ n : Nat, p n`, you may wish to extract the particular `n` for which `p n`
+holds.
+Or given a term `q : Nonempty Nat` you may wish to obtain the particular `Nat` used to construct `q`.
+In each of these cases, it is possible to extract an *arbitrary* `n : Nat` from `h` or `q`, but obtaining the *particular* `n` used in `h` or `p`'s construction is impossible.
+
+To understand why, first recall that Lean has a single universe hierarchy `Sort 0`, `Sort 1`, `Sort 2`, `Sort 3`, ...,
+and that `Prop` is shorthand for `Sort 0`, `Type` is shorthand for `Sort 1`, `Type 1` is shorthand for `Sort 2`, etc.
+The distinction between `Prop` and `Type u` exists because `Prop` has some special behavior which sometimes requires us to treat it distinctly from the rest of the universes.
+The two most important special properties of `Prop` are *impredicativity* and *proof irrelevance*.
+In this section, I will mainly discuss the consequences of proof irrelevance.
+
+In essence, proof irrelevance states that every proposition has at most one proof; that is, any two proofs of the same proposition are equal.
+Another way to state this is that every proposition is a *subsingleton*—a type with zero or one elements.
+The way proof irrelevance is implemented in Lean is that if `P : Prop` and `p : P` and `q : P`, then `p` and `q` are defintionally equal, so `rfl : p = q`.
+This is a built-in rule in Lean's type theory, and should not be confused with `propext`, which is an axiom that states that if `P Q : Prop` and `P ↔ Q`, then `P = Q`.
+
+To see why this rule is necessary, recall that an element of the subtype `{x : X // p x}` is of the form `{ val := x, property := h }` where `x` is an element of `X` and `h` is a proof that `p x`. If we defined
+```lean
+def x : {n : Nat // 4 < n} := { val := 8, property := Nat.lt_of_sub_eq_succ rfl }
+def y : {n : Nat // 4 < n} := { val := 8, property := by omega }
+```
+then `x` and `y` have the same value, but have different proofs.
+We would like `x` and `y` to be equal despite their different proofs, and it would be very convenient if they were even definitionally equal, and it is proof irrelevance that makes this possible:
+```lean
+example : x = y := rfl
+```
+
+Because of proof irrelevance, when a proof `h : ∃ n : Nat, p n` is constructed, it "forgets" which `n` was used to prove it.
+If there were some function `f : (∃ n : Nat, p n) → Nat` which extracted the natural number used in `h`'s construction, then we could make two different proofs `h₁ h₂ : ∃ n : Nat, p n` for which `f h₁ ≠ f h₂` but `h₁ = h₂` holds by proof irrelevance.
+This would be a contradiction, so no such `f` exists.
+
+More generally, when you define an inductive type `T` that lives in `Prop`, the return type of `T.rec` is only allowed to live in `Prop`.
+Practically speaking, this means that while the function
+```lean
+def swap {P Q : Prop} (h : P ∨ Q) : Q ∨ P :=
+  match h with
+  | Or.inl hp => Or.inr hp
+  | Or.inr hq => Or.inl hq
+```
+is allowed because the return type of the match expression lives in `Prop`, the function
+```lean
+def bad {P Q : Prop} (h : P ∨ Q) : Nat :=
+  match h with
+  | Or.inl hp => 1
+  | Or.inr hq => 2
+```
+is not allowed, because the return type of the match expression lives in `Type`.
+Note that some inductive propositions, known as *syntactic subsingletons*, are exempt from this limitation via a process known as *subsingleton elimination*.
+
+If you must extract data from a proposition, there are a couple of things you can do:
+- If you are extracting data in the middle of the proof of a proposition (as opposed to a `def` in `Type` or higher), then tactics like `cases` and `obtain` will work like normal. You can also apply eliminators like `Exists.elim` and `Nonempty.elim`, which only let you eliminate to propositions.
+- If you just need to extract an *arbitrary* `α` out of a proof `h : Nonempty α`, you can use the axiom `Classical.choice` to do so. Note that no properties can be proven about the output of `Classical.choice` aside from the fact that it lives in `α`. For example, if you use `Classical.choice` on a proof `h : Nonempty Nat` to produce an element `n : Nat`, then statements like `n = 37` are neither provable nor disprovable in Lean.
+Additionally, if you write code whose behavior depends on the value of `n`, then you will be forced to mark such code as `noncomputable`.
+- If you instead have an element `h : ∃ n : Nat, p n`. then you can use `Classical.choose` to get an element `n : Nat` and `Classical.choose_spec` to get a proof of `p n`.
+`Classical.choose` and `Classical.choose_spec` are defined internally by using `Classical.choice` to produce an element of `{n : Nat // p n}`, so the same stipulation about computability applies.
+- If you need to depend on the *particular* value used in the proof of `∃ n : Nat, p n`, you should probably avoid the `Exists` type entirely and exhibit an element of `{n : Nat // p n}` instead.
+`∃ n : Nat, p n` and `{n : Nat // p n}` both consist of a `n : Nat` and a proof that `p n`; their only different is which universe the type lives in.
+- If you are working over `Nat`, and you have a `h : ∃ n : Nat, p n` where `p` is a `DecidablePred`, then you can use `Nat.find` and `Nat.find_spec` similar to `Classical.choose` and `Classical.choose_spec`.
+`Nat.find` is computable, although it may not be particularly efficent since evaluating `Nat.find h` will check every natural number in order starting at 0 until it finds the smallest one satisfying `p`.
 
 ## Parameters for instances that already exist
 
