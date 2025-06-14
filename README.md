@@ -19,6 +19,7 @@ an issue or pull request on this repository.
 - [Wrapping arithmetic in `Fin`](#wrapping-arithmetic-in-fin)
 - [Real power](#real-power)
 - [Distance in `Fin n → ℝ`](#distance-in-fin-n-%E2%86%92-%E2%84%9D)
+- [Accidental double `iInf` or `iSup`](#accidental-double-iinf-or-isup)
 - [Parameters for instances that already exist](#parameters-for-instances-that-already-exist)
 - [Using `Set`s as types](#using-sets-as-types)
 - [Sort _](#sort-_)
@@ -399,6 +400,53 @@ example : dist !₂[(1 : ℝ),0] !₂[0,1] = √2 := by
 One consequence of this is that `Fin n → ℝ` is not registered as an inner product space,
 because the norm corresponding to the inner product would disagree with the existing $`L^\infty`$ norm.
 If you need $`\mathbb{R}^n`$ as an inner product space, use `EuclideanSpace ℝ (Fin n)`.
+
+## Accidental double `iInf` or `iSup`
+
+You might expect `⨅ x > 2, (x : ℝ) ^ 2` to be equal to `4`, because the image of
+`(2,∞)` under `fun x : ℝ ↦ x ^ 2` is `(4,∞)`. But in Lean, this expression actual equals `0`:
+
+```lean
+import Mathlib.Data.Real.Archimedean
+import Mathlib.Order.ConditionallyCompleteLattice.Indexed
+
+-- The infimum of x^2 on (2,∞) is ... 0?
+example : ⨅ x > 2, (x : ℝ) ^ 2 = 0 := by
+  set f := fun x : ℝ ↦ ⨅ (h : x > 2), x ^ 2
+  have hf₁ (x : ℝ) : f x = if _ : x > 2 then x ^ 2 else sInf ∅ := ciInf_eq_ite
+  have hf₂ : f 0 = 0 := by simp [hf₁]
+  have hf₃ (x : ℝ) : 0 ≤ f x := by
+    rw [hf₁]
+    split_ifs <;> simp [sq_nonneg]
+  apply le_antisymm
+  · rw [←hf₂]
+    refine ciInf_le ?_ 0
+    rw [bddBelow_iff_exists_le 0]
+    use 0
+    simp [hf₃]
+  · simp [le_ciInf, hf₃]
+```
+
+The reason for this is that `⨅ x > 2, (x : ℝ) ^ 2` is shorthand for `⨅ (x : ℝ) (h : x > 2), x ^ 2`, which is shorthand for `⨅ (x : ℝ), ⨅ (h : x > 2), x ^ 2`.
+Note that:
+- When `x > 2`, `⨅ (h : x > 2), x ^ 2` means `⨅ (h : True), x ^ 2` which equals `x ^ 2`.
+- When `x ≤ 2`, `⨅ (h : x > 2), x ^ 2` means `⨅ (h : False), x ^ 2` which equals
+`sInf (∅ : Set ℝ)`.
+In traditional math, $`\inf \varnothing`$ over the reals is usually undefined or defined to equal $`+\infty`$. But in Lean, `sInf (∅ : Set ℝ) = 0` (see the partial functions section above for an explanation).
+
+So, in summary, `⨅ x > 2, (x : ℝ) ^ 2` equals `⨅ (x : ℝ), f x` where
+```math
+f(x) = \begin{cases} x^2 &\text{ for } x > 2 \\ 0 &\text{ for } x \le 2 \end{cases}
+```
+and the infimum of this function is `0`.
+
+A similar situation arises for sets. `⨅ x ∈ s, f x` is shorthand for `⨅ x, ⨅ (_ : x ∈ s), f x` and might not be the same as `⨅ x : ↑s, f ↑x` (where the index type is `s` coerced to a type).
+Additionally, everything in this section applies as much to `iSup` as it does to `iInf`.
+
+`⨅` and `⨆` behave this way for consistency with other binders such as `∀` and `∃`:
+`∀ x ∈ s, p x` is shorthand for `∀ x, ∀ h : x ∈ s, p x` and `∃ x ∈ s, p x` is shorthand for `∃ x, ∃ h : x ∈ s, p x`.
+However, there have been discussions about possibly changing this behavior in the future: see
+[this discussion on Zulip](https://leanprover.zulipchat.com/#narrow/channel/287929-mathlib4/topic/sup.20and.20inf.20over.20sets/with/472565284).
 
 ## Parameters for instances that already exist
 
