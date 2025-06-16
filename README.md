@@ -182,6 +182,8 @@ For example, when `n` is an unknown natural number:
 - `n + 0` is definitionally and propositionally equal to `n` but not syntactically equal. This is because `Nat.add` is defined by recursion on the second argument, so Lean can reduce `n + 0` to `n` even if it doesn't know what `n` is.
 - `0 + n` is propositionally equal to `n` but not definitionally or syntactically equal. This is because Lean doesn't know how to reduce `0 + n` when `n` is unknown, so this statement has to be proven by induction.
 
+For more information, please see https://b-mehta.github.io/formalising-mathematics-notes/Part_1/equality.html
+
 Unfortunately, the line between syntactic and definitional equality is often blurred in Lean.
 The important thing to remember is that some tactics, such as `exact`, work up to definitional equality, but others such as `rw` and `simp` work up to syntactic equality.
 Even though Lean's core typechecker only cares about definitional equality, tactics are free to use to use the extra information about the syntax of terms to help them operate.
