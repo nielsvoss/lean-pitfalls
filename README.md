@@ -11,6 +11,7 @@ an issue or pull request on this repository.
 - [Using `have` for data](#using-have-for-data)
 - [Confusing `Prop` and `Bool`](#confusing-prop-and-bool)
 - [Trusting tactics to unfold definitions](#trusting-tactics-to-unfold-definitions)
+- [Using `b > a` instead of `a < b`](#using-b--a-instead-of-a--b)
 - [Not checking for distinctness](#not-checking-for-distinctness)
 - [Not accounting for 0](#not-accounting-for-0)
 - [Division by 0](#division-by-0)
@@ -188,6 +189,22 @@ Unfortunately, the line between syntactic and definitional equality is often blu
 The important thing to remember is that some tactics, such as `exact`, work up to definitional equality, but others such as `rw` and `simp` work up to syntactic equality.
 Even though Lean's core typechecker only cares about definitional equality, tactics are free to use to use the extra information about the syntax of terms to help them operate.
 
+## Using `b > a` instead of `a < b`
+
+Most of the time, `a < b` and `b > a` are definitionally equal in Lean.
+But in light of the above discussion about not trusting tactics to unfold definitions, even if two terms are definitionally equal they still might not be interchangable in all circumstances.
+For example, this rewrite fails because the right hand side of `Nat.mod_eq_iff_lt` is `m < n`, not `n > m`:
+```
+example {n m : Nat} (h₁ : m % n = m) (h₂ : n ≠ 0) : n > m := by
+  rw [←Nat.mod_eq_iff_lt h₂]
+```
+
+In Mathlib, `a < b` is preferred over `b > a`.
+In fact, `>` hardly even appears at all in Mathlib.
+This means that if you want to avoid having to use `gt_iff_lt` all the time, you should prefer `a < b` to `b > a` everywhere in your code.
+Similarly, you should prefer `a ≤ b` to `b ≥ a`.
+Outside of expressions like `∀ ε > 0, ∃ δ > 0, _` where the `>` is joined with the `∀` or `∃`, it is often best to not use `>` or `≥` at all.
+
 ## Confusing `Prop` and `Bool`
 
 The types `Prop` and `Bool` both capture the notion of something being true or false,
@@ -239,10 +256,6 @@ be distinct, so all we have to do is to show that there exists some element `a :
 and then we have `f(a) = f(a)` by definition.
 This is not a Lean specific issue, but it is more likely to lead to problems down
 the line in Lean than in informal math.
-
-(One thing the theorem statement does do correctly is use `<` instead of `>`.
-In Lean, `<` and `≤` are preferred to `>` and `≥`, and most theorems will be
-phrased in terms of the former two rather than the latter two.)
 
 ## Not accounting for 0
 
