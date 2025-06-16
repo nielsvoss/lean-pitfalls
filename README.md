@@ -10,6 +10,7 @@ an issue or pull request on this repository.
 - [Forgetting the Mathlib cache](#forgetting-the-mathlib-cache)
 - [Using `have` for data](#using-have-for-data)
 - [Confusing `Prop` and `Bool`](#confusing-prop-and-bool)
+- [Trusting tactics to unfold definitions](#trusting-tactics-to-unfold-definitions)
 - [Not checking for distinctness](#not-checking-for-distinctness)
 - [Not accounting for 0](#not-accounting-for-0)
 - [Division by 0](#division-by-0)
@@ -145,6 +146,45 @@ proof of this fact because of the definitional equality.
 
 You may also be interested in the `set` tactic, which is like `let` but
 also automatically replaces instances of the expression in the proof state.
+
+## Trusting tactics to unfold definitions
+
+A common mistake in Lean is trying to use tactics like `rw` and `simp` in the hopes that they will "see through" `def`s and `let` statements.
+For example, in the following, you might hope that the `rw` would realize that `x` is just shorthand for `0 + n` and rewrite it to `n`, but this doesn't happen:
+```lean
+theorem mythm (n : Nat) : True := by
+  let x := 0 + n
+  have : x = n := by
+    rw [Nat.zero_add]
+    /-
+    tactic 'rewrite' failed, did not find instance of the pattern in the target expression
+      0 + ?n
+    n : Nat
+    x : Nat := 0 + n
+    ⊢ x = n
+    -/
+```
+Similarly `simp` will also fail here with the error message "simp made no progress".
+
+The solution here is to first `unfold x` or use `change 0 + n = n` before calling `rw [Nat.zero_add]` or `simp`.
+You could also use `simp [x]` instead of `simp`.
+Finally, if `x` were a `def` instead of a `let`, you could do `rw [x]`, which is equivalent to `rw [show x = 0 + n from rfl]`.
+Note that it is important you use `let` and not `have` for `x`; see the section above on using `have` for data.
+
+That being said, it's worth understanding why this is even a problem in the first place.
+Recall that there are three main types of equality in Lean: propositional equality, definitional equality, and synctactic equality.
+Propositional equality is the normal notion of equality in traditional mathematics, and the proposition `a = b` in Lean refers to propositional equality.
+In constrast, definitional and syntactic equality are not things you can prove or disprove; two expressions are either definitionally equal or they aren't, and they are either syntactically equal or they aren't.
+
+A rough way of thinking about this is that two terms are syntactically equal if they are written the same way in Lean, and two terms are definitionally equal if calling `#reduce` on both of them would result in the same expression.
+For example, when `n` is an unknown natural number:
+- `n + 0` is both syntactically, definitionally, and propositionally equal to `n + 0`.
+- `n + 0` is definitionally and propositionally equal to `n` but not syntactically equal. This is because `Nat.add` is defined by recursion on the second argument, so Lean can reduce `n + 0` to `n` even if it doesn't know what `n` is.
+- `0 + n` is propositionally equal to `n` but not definitionally or syntactically equal. This is because Lean doesn't know how to reduce `0 + n` when `n` is unknown, so this statement has to be proven by induction.
+
+Unfortunately, the line between syntactic and definitional equality is often blurred in Lean.
+The important thing to remember is that some tactics, such as `exact`, work up to definitional equality, but others such as `rw` and `simp` work up to syntactic equality.
+Even though Lean's core typechecker only cares about definitional equality, tactics are free to use to use the extra information about the syntax of terms to help them operate.
 
 ## Confusing `Prop` and `Bool`
 
