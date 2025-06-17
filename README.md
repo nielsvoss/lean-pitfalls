@@ -2,8 +2,7 @@
 
 This document lists some common mistakes that Lean users frequently make, as well as unintuitive features of Lean that can lead to errors.
 
-If you find a mistake in this document or would like something added, please open
-an issue or pull request on this repository.
+If you find a mistake in this document or would like something added, please open an issue or pull request on this repository.
 
 ## Table of contents
 - [Automatic implicit parameters](#automatic-implicit-parameters)
@@ -38,8 +37,7 @@ an issue or pull request on this repository.
 
 ## Automatic implicit parameters
 
-By default, Lean's [automatic implicit parameters](https://lean-lang.org/doc/reference/latest///Definitions/Headers-and-Signatures/#automatic-implicit-parameters) feature (`autoImplicit` for short) causes
-unbound variables to be converted to implicit parameters. For example, when this feature is enabled,
+By default, Lean's [automatic implicit parameters](https://lean-lang.org/doc/reference/latest///Definitions/Headers-and-Signatures/#automatic-implicit-parameters) feature (`autoImplicit` for short) causes unbound variables to be converted to implicit parameters. For example, when this feature is enabled,
 ```lean
 theorem my_theorem : a + 1 = 1 + a := by omega
 ```
@@ -48,22 +46,17 @@ is short for
 theorem my_theorem {a : Nat} : a + 1 = 1 + a := by omega
 ```
 
-This feature can make your code more concise, but it also means that any typo in a theorem statement
-could make the theorem statement wrong. For example, the following
-statement
+This feature can make your code more concise, but it also means that any typo in a theorem statement could make the theorem statement wrong.
+For example, the following statement
 ```lean
 theorem my_theorem (n : Nat) (h : 1 ≤ n) : 0 < m := sorry
 ```
 is false because `m` is an automatic implicit parameter.
-The automatic implicit feature makes it hard to see that `m` was typed
-when `n` should have been typed instead.
-In newer Lean versions, you should be able to see an inline `{m}` appear in your text editor next to
-`my_theorem`, which indicates that `m` is acting as an automatic implicit parameter;
-it is worth watching for these annotations because they can help you find unintentional uses of
-`autoImplicit`.
+The automatic implicit feature makes it hard to see that `m` was typed when `n` should have been typed instead.
+In newer Lean versions, you should be able to see an inline `{m}` appear in your text editor next to `my_theorem`, which indicates that `m` is acting as an automatic implicit parameter; it is worth watching for these annotations because they can help you find unintentional uses of `autoImplicit`.
 
-Issues can also manifest in hard to predict ways. For example, if you haven't yet imported
-`Mathlib.Data.Nat.Notation`, then in
+Issues can also manifest in hard to predict ways.
+For example, if you haven't yet imported `Mathlib.Data.Nat.Notation`, then in
 ```lean
 theorem my_theorem : ∃ (a b : ℕ), a ≠ b := sorry
 ```
@@ -72,41 +65,31 @@ theorem my_theorem : ∃ (a b : ℕ), a ≠ b := sorry
 example : False := Exists.elim (my_theorem (ℕ := False)) (fun f _ ↦ f)
 ```
 
-Automatic implicit parameters are enabled globally by default, but they are disabled if you are
-working on Mathlib. If you are new to Lean, I recommend that you disable them and use the `variable`
-command instead. This can be done either by adding
+Automatic implicit parameters are enabled globally by default, but they are disabled if you are working on Mathlib.
+If you are new to Lean, I recommend that you disable them and use the `variable`
+command instead.
+This can be done either by adding
 ```lean
 set_option autoImplicit false
 ```
-at the top of every Lean file, or by disabling it globally in your `lakefile.toml` or `lakefile.lean`.
+at the top of every Lean file right after the `import` statements, or by disabling it globally in your `lakefile.toml` or `lakefile.lean`.
 
 ## Forgetting the Mathlib cache
 
-If you are working on `Mathlib` or a project depending on `Mathlib`,
-opening a file that depends on `Mathlib` or running `lake build` in the terminal may take upwards of an hour to complete the first time it is run.
-When Lean files are compiled for the first time, Lean caches the results of the compilation in `.olean` files so that subsequent runs
-are faster.
+If you are working on `Mathlib` or a project depending on `Mathlib`, opening a file that depends on `Mathlib` or running `lake build` in the terminal may take upwards of an hour to complete the first time it is run.
+When Lean files are compiled for the first time, Lean caches the results of the compilation in `.olean` files so that subsequent runs are faster.
 
-Running `lake exe cache get` in the terminal or [invoking "Project: Fetch Mathlib Build Cache" in VSCode](https://github.com/leanprover/vscode-lean4/blob/master/vscode-lean4/manual/manual.md#project-actions) downloads `.olean` files for `Mathlib` from
-a central server, which prevents you from having to compile them yourself
-and can save over an hour of compute time.
+Running `lake exe cache get` in the terminal or [invoking "Project: Fetch Mathlib Build Cache" in VSCode](https://github.com/leanprover/vscode-lean4/blob/master/vscode-lean4/manual/manual.md#project-actions) downloads `.olean` files for `Mathlib` from a central server, which prevents you from having to compile them yourself and can save over an hour of compute time.
 (You might want to try `lake exe cache get!` if `lake exe cache get` does not work.)
-If you find that your project is taking an unusually long amount of time
-to compile or start in VSCode, it could be because you forgot to run this command.
+If you find that your project is taking an unusually long amount of time to compile or start in VSCode, it could be because you forgot to run this command.
 
-Note that the decompressed compiled version of Mathlib is over 5 GB large, so make
-sure you have enough storage space and are connected to a suitable network
-(and not a phone hotspot with monthly limits, for example) before
-downloading the cache.
+Note that the decompressed compiled version of Mathlib is over 5 GB large, so make sure you have enough storage space and are connected to a suitable network (and not e.g. a phone hotspot with monthly limits) before downloading the cache.
 
 ## Using `have` for data
 
-Sometimes it can be convenient to introduce a new variable to represent
-a more complicated expression in a proof.
-For example, suppose you have a complicated predicate `MyPredicate`
-and would like to set `x := 37 * n + 42 * m + 76` inside a proof.
-If you do this with `have` and then prove `h : MyPredicate x`, you will notice that
-there's no way to use `h` to close the goal.
+Sometimes it can be convenient to introduce a new variable to represent a more complicated expression in a proof.
+For example, suppose you have a complicated predicate `MyPredicate` and would like to set `x := 37 * n + 42 * m + 76` inside a proof.
+If you do this with `have` and then prove `h : MyPredicate x`, you will notice that there's no way to use `h` to close the goal.
 ```lean
 example (n m : Nat) : MyPredicate (37 * n + 42 * m + 76) := by
   have x : Nat := 37 * n + 42 * m + 76
@@ -117,11 +100,9 @@ example (n m : Nat) : MyPredicate (37 * n + 42 * m + 76) := by
   ⊢ MyPredicate (37 * n + 42 * m + 76)
   Now what? -/
 ```
-Additionally, you might be unable to prove `MyPredicate x` if your proof depends
-on what the value of `x` is.
+Additionally, you might be unable to prove `MyPredicate x` if your proof depends on what the value of `x` is.
 
-The problem here is that when you use `have` to create a new variable in a proof,
-Lean forgets what value you assigned to `have`.
+The problem here is that when you use `have` to create a new variable in a proof, Lean forgets what value you assigned to `have`.
 So, after executing `have x : Nat := 37 * n + 42 * m + 76`, the proposition
 `x = 37 * n + 42 * m + 76` is now unprovable.
 
@@ -224,7 +205,7 @@ Even though Lean's core typechecker only cares about definitional equality, tact
 Most of the time, `a < b` and `b > a` are definitionally equal in Lean.
 But in light of the above discussion about not trusting tactics to unfold definitions, even if two terms are definitionally equal they still might not be interchangable in all circumstances.
 For example, this rewrite fails because the right hand side of `Nat.mod_eq_iff_lt` is `m < n`, not `n > m`:
-```
+```lean
 example {n m : Nat} (h₁ : m % n = m) (h₂ : n ≠ 0) : n > m := by
   rw [←Nat.mod_eq_iff_lt h₂]
 ```
@@ -257,22 +238,17 @@ If `p` is a proposition, it might make sense to say `h : p`, which means that `h
 On the other hand, if `q` is a boolean, then `q` is literally equal to either `true` or `false`; it doesn't make sense to "prove" `q`, because `q` is a value, not a statement.
 
 If you have a boolean `q`, you can convert it to a proposition by writing `q = true`.
-Conversely, if `p` is a proposition and if Lean can synthesize an instance of `Decidable p`, then
-you can convert `p` to a boolean by writing `decide p`.
+Conversely, if `p` is a proposition and if Lean can synthesize an instance of `Decidable p`, then you can convert `p` to a boolean by writing `decide p`.
 (Here, the term `decide` should not be confused with the tactic `decide`.)
-Since the axiom `Classical.choice` can be used to produce a `Decidable p` instance for any proposition `p`, any proposition can be converted to a boolean, and thus `Prop` and `Bool`
-are *classically equivalent*.
+Since the axiom `Classical.choice` can be used to produce a `Decidable p` instance for any proposition `p`, any proposition can be converted to a boolean, and thus `Prop` and `Bool` are *classically equivalent*.
 
 Despite this, it still makes sense to maintain a distinction between `Prop` and `Bool`.
-In mathlib, `Prop` and `Bool` may be assigned different instances for typeclasses;
-for example, `Prop` is given the Sierpiński space (with `{True}` open) as its topology while `Bool` is given the discrete topology.
+In mathlib, `Prop` and `Bool` may be assigned different instances for typeclasses; for example, `Prop` is given the Sierpiński space (with `{True}` open) as its topology while `Bool` is given the discrete topology.
 
 ## Not checking for distinctness
 
-Consider the following statement of the pigeonhole principle, which
-states that if $`f : A \to B`$ is a function betwen finite sets and $`|A| > |B|`$,
-then there exists two distinct elements in $`A`$ which $`f`$ map to the same element of $`B`$:
-```
+Consider the following statement of the pigeonhole principle, which states that if $`f : A \to B`$ is a function betwen finite sets and $`|A| > |B|`$, then there exists two distinct elements in $`A`$ which $`f`$ map to the same element of $`B`$:
+```lean
 import Mathlib.Data.Fintype.Card
 
 variable {A B : Type*} [Fintype A] [Fintype B]
@@ -282,11 +258,8 @@ theorem pigeonhole_principle (f : A → B) (h : Fintype.card B < Fintype.card A)
   exact ⟨a, a, rfl⟩
 ```
 If you look at the proof, you will notice that it is way too simple.
-Notice that the statement of the theorem forgets to require that `x` and `y`
-be distinct, so all we have to do is to show that there exists some element `a : α`
-and then we have `f(a) = f(a)` by definition.
-This is not a Lean specific issue, but it is more likely to lead to problems down
-the line in Lean than in informal math.
+Notice that the statement of the theorem forgets to require that `x` and `y` be distinct, so all we have to do is to show that there exists some element `a : α` and then we have `f(a) = f(a)` by definition.
+This is not a Lean specific issue, but it is more likely to lead to problems down the line in Lean than in informal math.
 
 ## Not accounting for 0
 
@@ -301,13 +274,11 @@ example : False := flt 0 0 0 3 le_rfl rfl
 
 Remember that in Lean, `0 : ℕ`, and that you should account for this case in your theorem statements.
 (This is also a case where using Mathlib definitions would have helped:
-Mathlib already has a definition `FermatLastTheorem` for the statement of Fermat's Last Theorem,
-which is much less likely to contain errors.)
+Mathlib already has a definition `FermatLastTheorem` for the statement of Fermat's Last Theorem, which is much less likely to contain errors.)
 
 ## Division by 0
 
-In Lean, `n / 0 = 0`. This is different from other programming languages, where division
-by zero usually results in an exception.
+In Lean, `n / 0 = 0`. This is different from other programming languages, where division by zero usually results in an exception.
 
 This means that a statement like
 ```lean
@@ -323,8 +294,7 @@ example : False := by
 ```
 
 Division behaves this way because Lean is a pure functional language, so all functions must be total—functions cannot throw exceptions.
-In Lean, the preferred way of working with a partial function $`f : A \rightharpoonup B`$
-is to instead define a function $`g : A \to B`$ such that $`g(x) = f(x)`$ whenever $`x \in \text{dom}(f)`$.
+In Lean, the preferred way of working with a partial function $`f : A \rightharpoonup B`$ is to instead define a function $`g : A \to B`$ such that $`g(x) = f(x)`$ whenever $`x \in \text{dom}(f)`$.
 The values of $`g`$ on $`A \setminus \text{dom}(f)`$ are arbitrary and are usually chosen to be whatever gives the nicest algebraic properties (these values are often known as "junk values").
 
 It is possible to instead define division like
@@ -338,8 +308,7 @@ For more information, please see [this Xena project blog post](https://xenaproje
 
 ## Integer division
 
-When dividing two `Int`s or `Nat`s in Lean, the result is always rounded down
-(this is slightly different behavior from most languages, which round towards zero).
+When dividing two `Int`s or `Nat`s in Lean, the result is always rounded down (this is slightly different behavior from most languages, which round towards zero).
 This is so that using division does not cause the type of the number being worked with to change.
 For example, the following statement is false:
 ```lean
@@ -376,8 +345,7 @@ This may surprise you if you're used to languages like Java where `(1 / 2) + 0.0
 In general, it is hard to determine the presence or absence of integer division.
 It is also possible that Lean's behavior with respect in the most recent example might change in the future.
 
-If this concerns you, you may want to consider adding `set_option pp.numericTypes true` near the top
-of your file, so that numeric literals are annotated with their corresponding
+If this concerns you, you may want to consider adding `set_option pp.numericTypes true` near the top of your file, so that numeric literals are annotated with their corresponding
 type (e.g. `ℕ`, `ℤ`, `ℚ`, `ℝ`, `ℂ`) when they are displayed in the infoview.
 
 ## Natural number subtraction
@@ -450,24 +418,17 @@ This applies to literals as well:
 #eval (15 : Fin 10) -- 5
 #eval (10 : Fin 10) -- 0
 ```
-Note that even though `Fin n` uses the same notion of addition, subtraction, and multiplication as `ZMod n` for positive `n`, they are not exactly the same because
-`Fin n` is ordered while `ZMod n` is unordered
-and `Fin n` uses truncating integer division while `ZMod n` uses the "mathematically correct" notion of division on $`\mathbb{Z}/n\mathbb{Z}`$ whenever $`n`$ is prime.
+Note that even though `Fin n` uses the same notion of addition, subtraction, and multiplication as `ZMod n` for positive `n`, they are not exactly the same because `Fin n` is ordered while `ZMod n` is unordered and `Fin n` uses truncating integer division while `ZMod n` uses the "mathematically correct" notion of division on $`\mathbb{Z}/n\mathbb{Z}`$ whenever $`n`$ is prime.
 Also `Fin 0` is empty while `ZMod 0 = Int` (this is so that `ZMod n` is always a ring of characteristic `n`, because empty types cannot be rings).
 
-One reason that `Fin` uses wrapping arithmetic instead of something like saturating arithmetic is that
-it is used to represent native fixed-width integer types like `UInt32`, and the operations
-on `Fin` need to agree with the overflow and underflow of machine-native arithmetic.
+One reason that `Fin` uses wrapping arithmetic instead of something like saturating arithmetic is that it is used to represent native fixed-width integer types like `UInt32`, and the operations on `Fin` need to agree with the overflow and underflow of machine-native arithmetic.
 
 ## Real power
 
 `Real.rpow x y` is defined somewhat arbitrarily for negative `x`.
-In particular, it is defined as the real part of the complex exponentiation
-function, which is itself somewhat arbitrary as it depends on the complex logarithm.
-This gives the function nice analytic properties, but it also means that
-taking roots of negative numbers can be unintuitive.
-For example, the value of `(-125 : ℝ) ^ (1/3 : ℝ)` is $`5\cos(\pi/3)`$,
-and not $`-5`$ like you might have expected.
+In particular, it is defined as the real part of the complex exponentiation function, which is itself somewhat arbitrary as it depends on the complex logarithm.
+This gives the function nice analytic properties, but it also means that taking roots of negative numbers can be unintuitive.
+For example, the value of `(-125 : ℝ) ^ (1/3 : ℝ)` is $`5\cos(\pi/3)`$, and not $`-5`$ like you might have expected.
 
 ## Distance in `Fin n → ℝ`
 
@@ -492,21 +453,18 @@ example : dist ![(1 : ℝ),0] ![0,1] = 1 := by
     fin_cases b <;> simp
 ```
 
-To instead use the standard Euclidean metric (also called the $`L^2`$ metric), you must
-use instead use `EuclideanSpace ℝ (Fin n)`, which is an abbreviation for `WithLp 2 (Fin n → ℝ)`. Vectors of this type can be written using the `!₂[x,y,z,...]` notation.
+To instead use the standard Euclidean metric (also called the $`L^2`$ metric), you must use instead use `EuclideanSpace ℝ (Fin n)`, which is an abbreviation for `WithLp 2 (Fin n → ℝ)`. Vectors of this type can be written using the `!₂[x,y,z,...]` notation.
 ```lean
 example : dist !₂[(1 : ℝ),0] !₂[0,1] = √2 := by
   norm_num [EuclideanSpace.dist_eq]
 ```
 
-One consequence of this is that `Fin n → ℝ` is not registered as an inner product space,
-because the norm corresponding to the inner product would disagree with the existing $`L^\infty`$ norm.
+One consequence of this is that `Fin n → ℝ` is not registered as an inner product space,because the norm corresponding to the inner product would disagree with the existing $`L^\infty`$ norm.
 If you need $`\mathbb{R}^n`$ as an inner product space, use `EuclideanSpace ℝ (Fin n)`.
 
 ## Accidental double `iInf` or `iSup`
 
-You might expect `⨅ x > 2, (x : ℝ) ^ 2` to be equal to `4`, because the image of
-`(2,∞)` under `fun x : ℝ ↦ x ^ 2` is `(4,∞)`. But in Lean, this expression actual equals `0`:
+You might expect `⨅ x > 2, (x : ℝ) ^ 2` to be equal to `4`, because the image of `(2,∞)` under `fun x : ℝ ↦ x ^ 2` is `(4,∞)`. But in Lean, this expression actual equals `0`:
 
 ```lean
 import Mathlib.Data.Real.Archimedean
@@ -547,8 +505,7 @@ Additionally, everything in this section applies as much to `iSup` as it does to
 
 `⨅` and `⨆` behave this way for consistency with other binders such as `∀` and `∃`:
 `∀ x ∈ s, p x` is shorthand for `∀ x, ∀ h : x ∈ s, p x` and `∃ x ∈ s, p x` is shorthand for `∃ x, ∃ h : x ∈ s, p x`.
-However, there have been discussions about possibly changing this behavior in the future: see
-[this discussion on Zulip](https://leanprover.zulipchat.com/#narrow/channel/287929-mathlib4/topic/sup.20and.20inf.20over.20sets/with/472565284).
+However, there have been discussions about possibly changing this behavior in the future: see [this discussion on Zulip](https://leanprover.zulipchat.com/#narrow/channel/287929-mathlib4/topic/sup.20and.20inf.20over.20sets/with/472565284).
 
 ## Trying to extract data from proofs of propositions
 
@@ -654,10 +611,8 @@ theorem bad : False := by
   cases @Nat.cast_injective _ _ my_theorem 2 0 rfl
 ```
 
-One symptom of this is that you might encounter expressions which look identical in the infoview but are not actually equal, resulting in tactics like `rfl`, `apply`,
-and `rw` failing with cryptic messages. For example,
-the tactic state below shows that the goal is to prove `dist 0 1 = dist 0 1` and you have to click
-three levels deep into the `dist` function on the right to find out that it is using the wrong instance.
+One symptom of this is that you might encounter expressions which look identical in the infoview but are not actually equal, resulting in tactics like `rfl`, `apply`, and `rw` failing with cryptic messages.
+For example, the tactic state below shows that the goal is to prove `dist 0 1 = dist 0 1` and you have to click three levels deep into the `dist` function on the right to find out that it is using the wrong instance.
 ```lean
 import Mathlib.Topology.MetricSpace.Basic
 
@@ -681,17 +636,13 @@ inst : MetricSpace ℝ
 ```
 from which you can conclude that the type classes do not match. When tactics such as `congr` or `convert` generate subgoals, it is often worth running `rfl` on those goals to see if they were caused by mismatching typeclass instances.
 
-In actual code, you probably would not write `inst.dist` by accident, but in more complicated
-examples the bad instances can manifest in hard to detect ways.
+In actual code, you probably would not write `inst.dist` by accident, but in more complicated examples the bad instances can manifest in hard to detect ways.
 
-Thank you to Edward van de Meent for suggesting that I include this topic and finding a misleading statement, and to Bhavik Mehta to working out the details of the proof that
-the first example was `False`.
+Thank you to Edward van de Meent for suggesting that I include this topic and finding a misleading statement, and to Bhavik Mehta to working out the details of the proof that the first example was `False`.
 
 ## Using `Set`s as types
 
-In Lean, `Set X` is defined as `X → Prop`, so sets are predicates, not types. However, there is an implicit coercion from `Set X` to `Type u`, so if you have parameters
-`(X : Type) (s : Set X) (a : s)`,
-the `(a : s)` really means `(a : {x : X // x ∈ s})`.
+In Lean, `Set X` is defined as `X → Prop`, so sets are predicates, not types. However, there is an implicit coercion from `Set X` to `Type u`, so if you have parameters `(X : Type) (s : Set X) (a : s)`, the `(a : s)` really means `(a : {x : X // x ∈ s})`.
 Here, `{x : X // x ∈ s}` is notation for `Subtype (fun x ↦ x ∈ s)`.
 
 That is, `a` is really a pair `⟨x, hx⟩` where `x : X` and `hx` is a proof that `x ∈ s`.
@@ -726,10 +677,8 @@ example (s : Set ℕ) (n : s) : 0 + (n : ℕ) = n := by
   ⊢ 0 + ↑⟨d, hd⟩ = ↑⟨d, hd⟩
   -/
 ```
-Here, the tactic did not perform induction on `n` as a natural number; instead, it deconstructed
-the two components of the `Subtype`.
-If you had instead tried to use the unprimed `induction` tactic, you
-would have gotten an "invalid alternative name 'zero', expected 'mk'" error message.
+Here, the tactic did not perform induction on `n` as a natural number; instead, it deconstructed the two components of the `Subtype`.
+If you had instead tried to use the unprimed `induction` tactic, you would have gotten an "invalid alternative name 'zero', expected 'mk'" error message.
 
 Note the presence of the `↑` in the tactic states. This represents a coercion, and it is one clue that the type of `n` might not be what you think it is.
 
@@ -746,15 +695,12 @@ structure Subgroup (M : Type*) [Group M] where
   one_mem : (1 : M) ∈ carrier
   inv_mem {x} : x ∈ carrier → x⁻¹ ∈ carrier
 ```
-This is so that if you have a `H : Subgroup G`, then you can work with elements of `H` by
-declaring `x : G` and `hx : x ∈ H` instead of having to write `x : H` and deal with `x` not
-actually having type `G`.
+This is so that if you have a `H : Subgroup G`, then you can work with elements of `H` by declaring `x : G` and `hx : x ∈ H` instead of having to write `x : H` and deal with `x` not actually having type `G`.
 
 ## Sort _
 
 Writing `Sort _` and `Type _` causes Lean to fill in the universe level parameter automatically.
-Sometimes, this results in Lean specializing the universe level more than you might
-have anticipated.
+Sometimes, this results in Lean specializing the universe level more than you might have anticipated.
 For example, in
 ```lean
 import Mathlib.Data.Countable.Defs
@@ -765,8 +711,7 @@ example (α : Sort _) (x y : α) (_ : Countable α := inferInstance) : x = y := 
 the `inferInstance` default argument finds `Prop.countable`, which causes `Sort _` to be restricted to `Prop`.
 So, `α : Prop`, which means that `x : α` and `y : α` are definitionally equal due to proof irrelevance.
 
-In older Lean versions, this behavior was even more likely to trigger, because code
-after the `:=` could affect what `Sort _` was.
+In older Lean versions, this behavior was even more likely to trigger, because code after the `:=` could affect what `Sort _` was.
 For example, the following code compiles in Lean 4.8.0:
 ```lean
 example {α : Sort _} (x y : α) : x = y := by
@@ -774,8 +719,7 @@ example {α : Sort _} (x y : α) : x = y := by
   rfl
 ```
 
-Because of this behavior, it is recommended to either use `Sort*` or `Type*` (which
-are stricter versions of `Sort _` and `Type _` that force Lean to generate a new universe parameter each time they are used) or to specify the universe parameter explicitly.
+Because of this behavior, it is recommended to either use `Sort*` or `Type*` (which are stricter versions of `Sort _` and `Type _` that force Lean to generate a new universe parameter each time they are used) or to specify the universe parameter explicitly.
 
 ## Trying to prove properties about Float
 
@@ -784,37 +728,23 @@ It is very difficult to prove properties about `Float`.
 This is because within the mathematical portion of Lean, `Float` is defined as an opaque type and `Float = Unit` is consistent with Lean's core type theory (as long as `native_decide` is not used).
 But computationally, `Float` follows the IEEE 754 *binary64* format, which is like `double` in C or `f64` in Rust.
 (See `Float32` for 32-bit floating point numbers.)
-This means that to prove anything meaningful about `Float`, you have to
-use `native_decide`, which is a risky tactic (see the section in this document on `native_decide`).
+This means that to prove anything meaningful about `Float`, you have to use `native_decide`, which is a risky tactic (see the section in this document on `native_decide`).
 
-Additionally, because of the behavior of floating point numbers,
-`0.1 + 0.2 == 0.3` evaluates to `false`.
+Additionally, because of the behavior of floating point numbers, `0.1 + 0.2 == 0.3` evaluates to `false`.
 (See https://0.30000000000000004.com/ for an explanation.)
 
-So, if you are not interested in using Lean as a programming language or otherwise
-want to prove complicated properties about the numbers you work with, you should
-avoid `Float` and use another numeric type such as `Rat` or `Real`.
+So, if you are not interested in using Lean as a programming language or otherwise want to prove complicated properties about the numbers you work with, you should avoid `Float` and use another numeric type such as `Rat` or `Real`.
 
 ## `native_decide`
 
-`native_decide`, also written as `decide +native`, is similar to the `decide`
-tactic except it uses `#eval` to run the decision procedure instead of reducing
-it in the kernel.
-This has the potential to be much faster than `decide`, and it is the only way to
-prove properties about `Float` and some other opaque types, but it is risky
-because it trusts the Lean compiler, which is more more complicated and likely
-to contain a bug than the Lean kernel.
+`native_decide`, also written as `decide +native`, is similar to the `decide` tactic except it uses `#eval` to run the decision procedure instead of reducing it in the kernel.
+This has the potential to be much faster than `decide`, and it is the only way to prove properties about `Float` and some other opaque types, but it is risky because it trusts the Lean compiler, which is more more complicated and likely to contain a bug than the Lean kernel.
 
-In particular, using `native_decide` makes your theorem depend on the
-`Lean.ofReduceBool` axiom, which states that the Lean compiler is trustworthy.
+In particular, using `native_decide` makes your theorem depend on the `Lean.ofReduceBool` axiom, which states that the Lean compiler is trustworthy.
 You can check whether a proof relies on this axiom by using `#print axioms`.
-In addition to trusting the compiler, `Lean.ofReduceBool` also trusts all
-`@[extern]` and `@[implemented_by]` annotations as well as other extensions to
-the compiler.
-Since there are hundreds of these annotations in Lean core, at the present moment
-`native_decide` is almost certainly capable of proving `False`.
-It will also trust your `@[extern]` and `@[implemented_by]` annotations without
-keeping track of them:
+In addition to trusting the compiler, `Lean.ofReduceBool` also trusts all `@[extern]` and `@[implemented_by]` annotations as well as other extensions to the compiler.
+Since there are hundreds of these annotations in Lean core, at the present moment `native_decide` is almost certainly capable of proving `False`.
+It will also trust your `@[extern]` and `@[implemented_by]` annotations without keeping track of them:
 ```lean
 def m := 37
 
@@ -836,24 +766,15 @@ Code contributed to Mathlib is not allowed to use `native_decide`.
 
 ## Panic does not abort
 
-If you are using Lean as a programming language, note that the `panic!`
-macro does not trigger a crash by default; instead, it just just prints
-an error message and lets the code keep running.
-This applies to functions like `Option.get!` as well.
-`panic` behaves this way because it is is a safe function, and it is
-formally equivalent to `default`.
+If you are using Lean as a programming language, note that the `panic!` macro does not trigger a crash by default; instead, it just just prints an error message and lets the code keep running.
+This applies to functions like `Option.get!` as well. `panic` behaves this way because it is is a safe function, and it is formally equivalent to `default`.
 
-This can be dangerous if you are using panic to guard potentially
-dangerous `IO` operations or prevent data corruption.
-You may want to consider setting the environment variable
-`LEAN_ABORT_ON_PANIC` to `1`, although this might not be sufficient
-for user facing applications where environment variables are hard to
-control.
+This can be dangerous if you are using panic to guard potentially dangerous `IO` operations or prevent data corruption.
+You may want to consider setting the environment variable `LEAN_ABORT_ON_PANIC` to `1`, although this might not be sufficient for user facing applications where environment variables are hard to control.
 
 ## Lean 3 code
 
-Lots of Lean 3 code can be found on the internet, and
-LLMs frequently generate Lean 3 code instead of Lean 4 code.
+Lots of Lean 3 code can be found on the internet, and LLMs frequently generate Lean 3 code instead of Lean 4 code.
 If you are reading old Lean code or using an LLM, and you see details such as
 - Names of types, like `nat` and `rat` starting with a lowercase letter
 - Lowercase imports like `import data.real.basic` that don't start with a library
@@ -863,16 +784,12 @@ name (the Lean 4 equivalent is `import Mathlib.Data.Real.Basic`).
 - The `rw` tactic without square brackets
 - The `refl` tactic (which is spelled `rfl` in Lean 4)
 
-then the code you are reading is probably Lean 3 code
-(or, if you are using an LLM, it could be an incoherent mix of Lean 3 and Lean 4).
+then the code you are reading is probably Lean 3 code (or, if you are using an LLM, it could be an incoherent mix of Lean 3 and Lean 4).
 Lean 3 and Lean 4 are very different languages, so Lean 3 code will not work in Lean 4.
 
 ## Non-terminal simp
 
-This is not something you need to be concerned about when writing proofs for the
-first time, but if you are trying to tidy up a proof, perhaps so that it can be
-added to a library like mathlib, then note that using `simp` in the middle of
-a tactic block is considered bad practice.
+This is not something you need to be concerned about when writing proofs for the first time, but if you are trying to tidy up a proof, perhaps so that it can be added to a library like mathlib, then note that using `simp` in the middle of a tactic block is considered bad practice.
 In the following
 ```lean
 example : ... := by
@@ -884,19 +801,12 @@ example : ... := by
 the usage of `simp` is considered *non-terminal*.
 
 Non-terminal `simp`s create maintainability issues.
-In general, `simp` will become more powerful over time as more lemmas are added
-to mathlib, and that means that the goal state after `simp` can change when
-code in other parts of the library changes, potentially breaking any tactics
-that come after `simp`, such as the `rw` in this example.
-In the less common cases where lemmas are removed from mathlib, both terminal
-`simp`s and non-terminal `simp`s can break, but it is usually much easier to
-fix a terminal `simp` call.
+In general, `simp` will become more powerful over time as more lemmas are added to mathlib, and that means that the goal state after `simp` can change when code in other parts of the library changes, potentially breaking any tactics that come after `simp`, such as the `rw` in this example.
+In the less common cases where lemmas are removed from mathlib, both terminal `simp`s and non-terminal `simp`s can break, but it is usually much easier to fix a terminal `simp` call.
 
-To avoid non-terminal `simp`s, you can use a simp variant like `simpa` or `simp_rw`
-to combine `simp` with the tactics that come after it, or you can "squeeze" your
-simp calls by using `simp?`.
-Note that it is fine for `simp` to appear in the middle of a proof as long as
-it fully closes a goal. For example, then even though the `simp` in
+To avoid non-terminal `simp`s, you can use a simp variant like `simpa` or `simp_rw` to combine `simp` with the tactics that come after it, or you can "squeeze" your simp calls by using `simp?`.
+Note that it is fine for `simp` to appear in the middle of a proof as long as it fully closes a goal.
+For example, then even though the `simp` in
 ```lean
   induction n with
   | zero =>
@@ -904,26 +814,18 @@ it fully closes a goal. For example, then even though the `simp` in
   | succ d hd =>
     ...
 ```
-is in the middle of the proof, it is not considered a non-terminal simp
-because it fully closes a goal.
+is in the middle of the proof, it is not considered a non-terminal simp because it fully closes a goal.
 
-For more information, see
-https://leanprover-community.github.io/extras/simp.html#non-terminal-simps
+For more information, see https://leanprover-community.github.io/extras/simp.html#non-terminal-simps
 
 ## Ignoring warnings
 
-Pay close attention to warnings in your Lean files. An unused variables
-warning in a completed theorem could mean that not all hypotheses were
-used, which usually indicates that the theorem statement was wrong.
-Similarly, a warning that a declaration uses sorry when you did not
-type `sorry` yourself could indicate that a tactic failed and closed
-the proof with a synthetic sorry silently.
+Pay close attention to warnings in your Lean files.
+An unused variables warning in a completed theorem could mean that not all hypotheses were used, which usually indicates that the theorem statement was wrong.
+Similarly, a warning that a declaration uses sorry when you did not type `sorry` yourself could indicate that a tactic failed and closed the proof with a synthetic sorry silently.
 
-If you are certain that a warning does not apply, you can disable it
-with an appropriate usage of `set_option`.
-This is better programming practice than ignoring the warnings
-and leaving others (or your future self!) to guess which warnings
-are expected and which you should be concerned about.
+If you are certain that a warning does not apply, you can disable it with an appropriate usage of `set_option`.
+This is better programming practice than ignoring the warnings and leaving others (or your future self!) to guess which warnings are expected and which you should be concerned about.
 
 Note that the `#lint` command (defined in `Batteries`) can detect some common issues,
 such as syntactic tautologies.
@@ -932,10 +834,8 @@ be run at the end of the file.
 
 ## Ambiguous unicode characters
 
-Lean makes extensive use of non-ASCII unicode characters, but a side effect of this
-is that many characters look similar but have very different functionality in Lean.
-If you are using VSCode with the Lean 4 extension, you can hover over
-unfamiliar characters to see instructions on how to type them.
+Lean makes extensive use of non-ASCII unicode characters, but a side effect of this is that many characters look similar but have very different functionality in Lean.
+If you are using VSCode with the Lean 4 extension, you can hover over unfamiliar characters to see instructions on how to type them.
 
 Some characters that are often confused include:
 
