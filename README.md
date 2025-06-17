@@ -219,7 +219,8 @@ It is worth making sure you have a good grasp on the difference between `Prop` a
 
 In Lean, `Prop` and `Bool` are both types, but `Prop` is also a universe while `Bool` is just a regular type containing two elements.
 This means that if `p : Prop` and `q : Bool`, then `h : p` might be valid but `h : q` is never valid.
-On the other hand, you can use terms of type `Bool` in `match` statements, but you cannot `match` on terms of type `Prop`. `Bool` is used sparingly in mathematics, but it is used much more often when `Lean` is used as a programming language.
+On the other hand, you can use terms of type `Bool` in `match` statements, but you cannot `match` on terms of type `Prop` (the equivalent operation on `Prop` would be the `by_cases hp : p` tactic or the "dependent" if-then-else statement `if hp : p then ... else ...`).
+`Bool` is used sparingly in mathematics, but it is used much more often when `Lean` is used as a programming language.
 
 Intuitively, a proposition is a mathematical statement that might be either be proven or disproven.
 If `p` is a proposition, it might make sense to say `h : p`, which means that `h` is a proof of `p`.
