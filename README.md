@@ -10,6 +10,7 @@ an issue or pull request on this repository.
 - [Forgetting the Mathlib cache](#forgetting-the-mathlib-cache)
 - [Using `have` for data](#using-have-for-data)
 - [Confusing `Prop` and `Bool`](#confusing-prop-and-bool)
+- [Rewriting under binders](#rewriting-under-binders)
 - [Trusting tactics to unfold definitions](#trusting-tactics-to-unfold-definitions)
 - [Using `b > a` instead of `a < b`](#using-b--a-instead-of-a--b)
 - [Not checking for distinctness](#not-checking-for-distinctness)
@@ -148,6 +149,34 @@ proof of this fact because of the definitional equality.
 
 You may also be interested in the `set` tactic, which is like `let` but
 also automatically replaces instances of the expression in the proof state.
+
+## Rewriting under binders
+
+It would be reasonable to expect `rw` to change `0 + i ^ 2` to `i ^ 2` in the following, but unfortunately `rw` fails:
+```lean
+import Mathlib.Algebra.BigOperators.Group.Finset.Defs
+
+example (s : Finset Nat) : ∑ i ∈ s, (0 + i ^ 2) = ∑ i ∈ s, i ^ 2 := by
+  rw [Nat.zero_add]
+  /-
+  tactic 'rewrite' failed, did not find instance of the pattern in the target expression
+    0 + ?n
+  s : Finset ℕ
+  ⊢ ∑ i ∈ s, (0 + i ^ 2) = ∑ i ∈ s, i ^ 2
+  -/
+```
+This is because `∑ i ∈ s, (0 + i ^ 2)` is shorthand for `Finset.sum s (fun i ↦ 0 + i ^ 2)`, and `rw` is unable to look into the `fun` expression.
+
+In this case, you can use `simp_rw [Nat.zero_add]` to perform the rewrite, but in some cases you might have to make a precise rewrite using [conversion mode](https://leanprover.github.io/theorem_proving_in_lean4/conv.html):
+```lean
+example (s : Finset Nat) : ∑ i ∈ s, (0 + i ^ 2) = ∑ i ∈ s, i ^ 2 := by
+  conv =>
+    lhs
+    congr
+    · rfl
+    · intro i
+      rw [Nat.zero_add]
+```
 
 ## Trusting tactics to unfold definitions
 
