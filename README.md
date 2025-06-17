@@ -22,7 +22,7 @@ an issue or pull request on this repository.
 - [Real power](#real-power)
 - [Distance in `Fin n → ℝ`](#distance-in-fin-n-%E2%86%92-%E2%84%9D)
 - [Accidental double `iInf` or `iSup`](#accidental-double-iinf-or-isup)
-- [Trying to extract data from propositions](#trying-to-extract-data-from-propositions)
+- [Trying to extract data from proofs of propositions](#trying-to-extract-data-from-proofs-of-propositions)
 - [Parameters for instances that already exist](#parameters-for-instances-that-already-exist)
 - [Using `Set`s as types](#using-sets-as-types)
 - [Sort _](#sort-_)
@@ -504,7 +504,7 @@ Additionally, everything in this section applies as much to `iSup` as it does to
 However, there have been discussions about possibly changing this behavior in the future: see
 [this discussion on Zulip](https://leanprover.zulipchat.com/#narrow/channel/287929-mathlib4/topic/sup.20and.20inf.20over.20sets/with/472565284).
 
-## Trying to extract data from propositions
+## Trying to extract data from proofs of propositions
 
 Given a proof `h : ∃ n : Nat, p n`, you may wish to extract the particular `n` for which `p n`
 holds.
