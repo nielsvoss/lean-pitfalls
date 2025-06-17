@@ -367,6 +367,21 @@ As explained above in the integer division section, type annotations can affect 
 
 Trucating subtraction is also known as [monus](https://en.wikipedia.org/wiki/Monus).
 
+One place where natural number subtraction might arise is if you have a predicate `P : Nat → Prop` and want to show that `P n` holds for all `n ≥ 1`.
+If you try to prove
+```lean
+theorem mythm {n : Nat} (hn : 1 ≤ n) : P n := ...
+```
+you might find that the proof of `mythm` requires you to frequently refer to `n - 1`.
+Even though no truncation occurs here, this statement may still be tedious to prove because automation often does not work well with natural number subtraction.
+In many cases, it makes sense to instead prove
+```lean
+theorem mythm (n : Nat) : P (n + 1) := ...
+```
+because this completely avoids natural number subtraction.
+More generally, you can often rephrase a statement that involves natural number subtraction to one that doesn't.
+Additionally, in a lot of cases, the latter phrasing of `mythm` is easier to use than the former phrasing.
+
 ## Other partial functions
 
 You should also be aware that many other functions in Mathlib use junk values.
