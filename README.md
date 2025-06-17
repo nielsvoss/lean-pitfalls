@@ -23,6 +23,7 @@ an issue or pull request on this repository.
 - [Distance in `Fin n → ℝ`](#distance-in-fin-n-%E2%86%92-%E2%84%9D)
 - [Accidental double `iInf` or `iSup`](#accidental-double-iinf-or-isup)
 - [Trying to extract data from proofs of propositions](#trying-to-extract-data-from-proofs-of-propositions)
+- [Working with equality of types](#working-with-equality-of-types)
 - [Parameters for instances that already exist](#parameters-for-instances-that-already-exist)
 - [Using `Set`s as types](#using-sets-as-types)
 - [Sort _](#sort-_)
@@ -581,6 +582,24 @@ Additionally, if you write code whose behavior depends on the value of `n`, then
 `∃ n : Nat, p n` and `{n : Nat // p n}` both consist of a `n : Nat` and a proof that `p n`; their only different is which universe the type lives in.
 - If you are working over `Nat`, and you have a `h : ∃ n : Nat, p n` where `p` is a `DecidablePred`, then you can use `Nat.find` and `Nat.find_spec` similar to `Classical.choose` and `Classical.choose_spec`.
 `Nat.find` is computable, although it may not be particularly efficent since evaluating `Nat.find h` will check every natural number in order starting at 0 until it finds the smallest one satisfying `p`.
+
+## Working with equality of types
+
+Equality of types is poorly behaved in Lean's type theory.
+If `A` and `B` are distinct inductive types or structures in `Type u`, and if `A` and `B` have the same cardinality, then the statement `A = B` is neither provable nor disprovable in Lean.
+For example, `Int = Nat` is neither provable nor disprovable.
+For more information, please read Jason Rute's and Andrej Bauer's answers to this question: https://proofassistants.stackexchange.com/q/4046.
+
+Roughly speaking, the only time that you can prove two types are equal is if
+they were defined from the same irreducible types. For example, `Fin n = Fin m` is provable when `n = m`, but `Fin 2 = Bool` is not provable.
+The only time that you can prove that two types are *not* equal is if they have different cardinalities. So, `Fin 3 ≠ Bool` is provable, but `Fin 2 ≠ Bool` is not provable.
+The exception is `Prop`, where the axiom `propext` can be thought of as saying that two `Prop`s are equal if they have the same cardinality.
+
+If you *are* able to prove that `A = B`, then you can use `cast` to convert an element of `A` to an element of `B`.
+But reliance upon `cast` often causes problems down the line and can lead to the poorly behaved `HEq`.
+Usually, instead of working with equality of types, it is much better to work with a suitable type of isomorphisms (or `Equiv` if you are not working with any sort of algebraic or topological structure).
+Alternatively, if you are working with equality of `Subtype`s of `α`, you might want to instead work with elements of `Set α`.
+Equality in `Set α` is well-behaved.
 
 ## Parameters for instances that already exist
 
