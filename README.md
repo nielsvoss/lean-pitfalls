@@ -1,5 +1,10 @@
 # Common Lean Pitfalls
 
+> [!IMPORTANT]
+> This document **has been moved** to https://leanprover-community.github.io/extras/pitfalls.html.
+Feedback should be directed to the [community website github repository](https://github.com/leanprover-community/leanprover-community.github.io) or the [Lean Zulip](https://leanprover.zulipchat.com/).
+This document will no longer be updated and might go out of date.
+
 This document lists some common mistakes that Lean users frequently make, as well as unintuitive features of Lean that can lead to errors.
 
 If you find a mistake in this document or would like something added, please open an issue or pull request on this repository.
